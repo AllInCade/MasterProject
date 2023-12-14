@@ -1,0 +1,147 @@
+Below is code which demonstrates how to fit a spline regression model using Ben Bolkers method for the \texttt{glmmTMB} and comparing it to the "equivalent" \texttt{mgcv} model. The process involves defining a smooth term, converting it into a random effect representation, creating a prediction matrix, fitting a Generalized Linear Mixed Model (GLMM), fitting a corresponding Generalized Additive Model (GAM), and comparing various aspects of the two models. More detailed explanation of each component of the code given below the code chunk. 
+
+\begin{verbatim}
+# Load data
+data("chicago", package = "gamair")
+
+# Using Devin Johnsons function and method for producing
+# prediction matrices compatible with glmmTMB.
+
+# Define the "smooth object"
+# Smooth constructor for given term in formula. 
+sm <- mgcv::smoothCon(s(tmpd), data = chicago)[[1]] 
+
+# Define the random effect and set type = 2
+re <- mgcv::smooth2random(sm, "", type=2)
+
+# Prediction function (D. Johnson)
+ 
+s2rPred <- function(sm, re, data) {
+  X <- PredictMat(sm,data)   ## get prediction matrix for new data
+  # transform to r.e. parameterization
+  if (!is.null(re$trans.U)) X <- X%*%re$trans.U
+  X <- t(t(X)*re$trans.D)
+  # re-order columns according to random effect re-ordering...
+  X[,re$rind] <- X[,re$pen.ind!=0] 
+  # re-order penalization index in same way  
+  pen.ind <- re$pen.ind; pen.ind[re$rind] <- pen.ind[pen.ind>0]
+  # start return object...
+  r <- list(rand=list(),Xf=X[,which(re$pen.ind==0),drop=FALSE])
+  for (i in 1:length(re$rand)) { # loop over random effect matrices
+    r$rand[[i]] <- X[,which(pen.ind==i),drop=FALSE]
+    attr(r$rand[[i]],"s.label") <- attr(re$rand[[i]],"s.label")
+  } 
+  names(r$rand) <- names(re$rand)
+  r
+}
+
+# Defining prediction matrix
+pred_matrix <- s2rPred(sm, re, data = chicago)
+
+new_data <- chicago
+new_data$Xr <- pred_matrix$rand[[1]] 
+# Assuming this is the correct structure
+
+
+# Fit the model with glmmTMB using a variant of
+# Ben Bolkers method
+# Xr is representing the smooth term s(tmpd).
+gtmb1 <- glmmTMB(formula = death ~ Xr + time, 
+    data = new_data, REML = TRUE)
+
+# Fit the same model using mgcv standard implementation
+mgcv1 <- gam(formula = death ~ s(tmpd) + time, data = chicago)
+\end{verbatim}
+Here follows an outline of the method used to fit the spline model using \texttt{glmmTMB} and comparisons with a corresponding \texttt{mgcv} model.
+\newline
+
+We begin by installing the specific branch from Ben Bolkers github repository, and loading some example data to test.
+We do not know exactly how Ben Bolker has defined his smooth objects and random effects, but we believe it's generally similar to how we demonstrate below. Here are some elaborations on the comments inside the code.
+
+\subsection{'mgcv-style' smooths for glmmTMB}
+
+Work has been done by Ben Bolker in the direction of implementing mgcv-style smooth in glmmTMB, shown in full \hyperref[here]{url}. We will analyse his work thus far to gain some understanding in which obstacles are to be overcome in order to obtain seamless implementation of smooth terms in glmmTMB. 
+
+\subsection*{Areas That Need More Work:}
+
+\begin{enumerate}[label=\arabic*.]
+    \item \textbf{Model Convergence:}
+    \begin{itemize}
+        \item The code suggests potential issues with model convergence, especially when different starting values for \texttt{theta} are used.
+    \end{itemize}
+    
+    \item \textbf{Random Effects:}
+    \begin{itemize}
+        \item There's a comment in the code indicating that all b-values for the smooth might be very small.
+    \end{itemize}
+    
+    \item \textbf{Model Specification:}
+    \begin{itemize}
+        \item The \texttt{fixme} comment suggests that a more appropriate example should be chosen.
+    \end{itemize}
+    
+    \item \textbf{Issues with ML Fit:}
+    \begin{itemize}
+        \item The provided context mentions issues with the default ML fit.
+    \end{itemize}
+    
+    \item \textbf{Documentation and References:}
+    \begin{itemize}
+        \item The functionality of exporting smooths from \texttt{mgcv} is described as "briefly" documented.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Analysis and elaboration on points by Ben Bolker}
+
+\begin{enumerate}
+    \item \textbf{mkReTrms and Bar-Terms}:
+    \begin{itemize}
+        \item \textit{Analysis}: The function \texttt{mkReTrms}, imported from the \texttt{lme4} package, currently processes only the bar-terms. The existing methodology involves post-processing the results to incorporate elements from the smooth terms. This approach can be inefficient and cumbersome.
+        \item \textit{Elaboration}: In statistical modeling, especially in mixed-effects models, the distinction between fixed effects (standard terms) and random effects (bar-terms) is crucial. If \texttt{mkReTrms} only considers bar-terms, it might be overlooking the variability and structure introduced by smooth terms. The post-processing step, while a workaround, can introduce inefficiencies and potential errors.
+        \item \textit{Potential Solutions}:
+        \begin{itemize}
+            \item \textbf{Modify \texttt{mkReTrms}}: By integrating \texttt{mkReTrms} into the \texttt{reformulas} package and refactoring it, we can ensure it remains compliant with \texttt{lme4} while also being more versatile. This would allow for the direct inclusion of smooth terms, streamlining the process.
+            \item \textbf{Adjust \texttt{s()}-terms}: Another approach is to treat \texttt{s()}-terms as dummy terms with the appropriate dimensions. While this might seem like a direct solution, it's essentially a patchwork that doesn't address the root of the problem.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Conversion from \texttt{s()} to \texttt{homdiag()}}:
+    \begin{itemize}
+        \item \textit{Analysis}: The current approach involves a makeshift conversion of \texttt{s()} to \texttt{homdiag()}, a workaround to achieve a specific functionality.
+        \item \textit{Elaboration}: Both \texttt{s()} and \texttt{homdiag()} have distinct roles. The former is used for spline smoothing, while the latter  is related to diagonal matrices (\textbf{RE} covariance matrix). Treating them as synonymous could be a temporary solution, but it's crucial to understand the implications.
+        \item \textit{Duplicating vs. Synonyms}: Duplicating the \texttt{homdiag} code might lead to redundancy and maintenance challenges. On the other hand, making them synonyms "under the hood" might be more efficient but can lead to confusion for users or developers unfamiliar with this internal decision.
+    \end{itemize}
+
+    \item \textbf{Random Effects for Dispersion Term}:
+    \begin{itemize}
+        \item \textit{Analysis}: The consideration of allowing random effects for the dispersion term brings up complexities, especially when introducing smooths into the dispersion term.
+        \item \textit{Elaboration}: In statistical modeling, the dispersion term captures the variability in the data. Allowing random effects in this term can provide a more flexible model that accounts for unobserved heterogeneity. However, it also introduces additional complexities and computational challenges. If smooths are to be allowed in the dispersion term, random effects become almost a necessity to capture the inherent structure and variability accurately.
+    \end{itemize}
+\end{enumerate}
+
+In summary, while the current approach has workarounds and makeshift solutions, there's a clear indication of the need for refactoring and rethinking some of the methodologies to make the process more streamlined and efficient.
+
+\subsection{ftmb line}
+
+The line of code `ftmb <- glmmTMB(y $\sim$ 0+Xf +(0+Xr|g), family=poisson, map=tmb_map)` in detail.
+
+\begin{itemize}
+    \item `y`: This is the response variable you are trying to model.
+    \item `0+Xf`: This part indicates not including an intercept in the fixed-effects part of the model. Instead, it's directly using \(Xf\) as fixed-effects predictor.
+    \item `0+Xr|g`: This part indicates not including an intercept in the random-effects part of the model. \(Xr\) serves as the random-effects predictor, and these effects are grouped by the variable \(g\).
+    \item `family=poisson`: This specifies that the response variable follows a Poisson distribution.
+    \item `map=tmb\_map`: This is a list of parameters and settings for the TMB optimizer.
+\end{itemize}
+
+
+1. **Basis Functions**: Both \(Xr\) and \(s()\) terms use basis functions \(B_i(x)\) to represent the covariates. However, \(Xr\) terms are transformed into random effects, while \(s()\) terms remain as smooth terms.
+
+2. **Penalization**: \(s()\) terms include a penalty term \(\lambda \int [s''(x)]^2 dx\) to control the smoothness, whereas \(Xr\) terms do not have an explicit penalty term but achieve similar regularization through the random effects structure.
+
+3. **Flexibility**: \(s()\) terms offer more flexibility in choosing the type of spline and the degree of smoothness through the smoothing parameter \(\lambda\). \(Xr\) terms are more rigid but can be integrated into GLMM frameworks more easily.
+
+4. **Interpretability**: \(Xr\) terms, being transformed into random effects, can be more easily interpreted in the context of mixed models. \(s()\) terms provide a more direct interpretation of the smoothness of the relationship between the covariate and the response.
+
+5. **Computational Complexity**: \(s()\) terms may require specialized algorithms for optimization due to the penalty term, while \(Xr\) terms can be optimized using standard GLMM algorithms.
+
+In summary, \(Xr\) terms and \(s()\) terms serve similar purposes but are suited for different modeling frameworks and offer different levels of flexibility and interpretability

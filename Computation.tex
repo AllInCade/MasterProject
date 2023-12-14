@@ -1,0 +1,305 @@
+
+
+
+\section{Big Data Models and Performance}
+
+
+\subsection{The Data Set}
+
+
+
+\subsection{Data Cleaning and Transformation}
+The data undergoes several preprocessing steps to ensure its quality and suitability for statistical modeling. The following outlines these steps:
+\newline
+    
+\textbf{Random Sampling:} To reduce computational complexity, a random sample comprising 10\% of the original dataset is selected for further analysis. The full data set is simply too large for our current hardware (Even with 32GB RAM the system could not allocate enough memory to R). Sampling on 10 percent of the data set will do. It's still nearly a million observations. 
+\newline
+
+\textbf{Missing and Infinite Value Removal:} An iteration is performed through the columns "lat," "lon," "abar," "spd," and "datetime\_UTC" to identify and remove rows containing missing (\texttt{NA}), \texttt{NaN}, or infinite (\texttt{Inf} or \texttt{-Inf}) values.
+\newline
+
+\textbf{Datetime Conversion:} The \texttt{datetime\_UTC} column is transformed into a numeric format. Specifically, the difference in days between each datetime value and the minimum datetime in the dataset is calculated. This new feature is stored in a column named \texttt{datetime\_numeric}.
+\newline
+
+\textbf{Additional Missing Value Check for 'abar':} A specialized check is performed on the 'abar' column to remove any rows containing missing or infinite values.
+\newline
+
+These preprocessing steps ensure that the dataset is clean and free from missing or problematic values, making it suitable for further statistical analysis. The transformation of datetime values to a numeric format is particularly beneficial for time-series analysis and other modeling techniques requiring numeric input variables.
+
+
+\subsection{Fitting Appropriate Models}
+
+We are going to pick out variables from the data set that we understand and believe will be significant predictors of wind speed, which will be our response variable. The variables we chose are \textbf{time, latitude, longitude, atmospheric pressure}. Other models using different response variables on binomial, Poisson, Gamma (to approximate exponential) will also be meddled with. 
+
+\subsection{Sub setting \& Parallel Computing}
+In the quest for an optimal model, it is essential to run and compare a multitude of models to evaluate their efficacy, speed, and performance across various distribution specifications. This process can be time-consuming, especially when dealing with large datasets and complex models. A practical approach to expedite this process is to fit models on significantly smaller subsets of the data for preliminary testing. For instance, much of the initial testing is conducted on a subset comprising only 0.001 of the entire dataset, which equates to approximately 9,000 observations.  
+\newline
+
+Parallel computing offers another effective strategy for accelerating the model-fitting process. Although neither the glmmTMB nor mgcv packages, nor R itself, natively support parallel computing, additional packages such as furrr and future can enable this functionality. My computing system is equipped with six cores, allowing me to allocate five cores for running five distinct models concurrently, while reserving one core for the operating system and other computer operations. The code for implementing this parallel computing approach is detailed in the Appendix. Given the substantial size of our wind dataset—approximately 9 million observations—and the complexity of the spline regression models we are utilizing, both the scale of the data and the intricacy of the models become salient factors. We explore these considerations right below.
+
+\textbf{Model Complexity:}
+\begin{itemize}
+    \item \textit{Number of Knots in Splines:} The complexity of the spline regression models is directly related to the number of knots. More knots mean a more flexible model but also increase the computational time for fitting.
+    
+    \item \textit{Distribution Assumptions:} We are using the Tweedie distribution, which is a generalized exponential family distribution. The Tweedie distribution requires iterative fitting procedures that can be computationally expensive.
+\end{itemize}
+
+\textbf{Data Size:}
+\begin{itemize}
+    \item \textit{Number of Observations:} With around 9 million observations, the sheer size of the dataset significantly impacts the runtime. The computational complexity for such large datasets is often \(O(n \log n)\) or even \(O(n^2)\), where \(n\) is the number of observations.
+\end{itemize}
+
+\textbf{Mathematical Relationship:}
+The runtime \(T\) can be approximated as:
+\[
+T = O(n \cdot p \cdot k \cdot i)
+\]
+where \(n\) is the number of observations, \(p\) is the number of parameters, \(k\) is the number of knots, and \(i\) is the number of iterations needed for the optimization algorithm to converge.
+\newline
+
+In summary, both the complexity of the spline regression models, particularly the number of knots and the Tweedie distribution assumption, as well as the large size of the wind dataset, play a crucial role in the computational time required for model fitting. 
+
+\subsection{Comparing Model Fits}
+After trying many models (in parallel) we find that using the Tweedie distribution gave the best fit. The time, latitude, longitude and pressure variables were all significant predictors. One pontetial issue we found was multicollinearity in the variables. We tested for it and the results were somewhat concerning. 
+
+The best model we fit is the following 
+
+\begin{verbatim}
+    glmmTMB(formula = spd ~ Xr_time + Xr_lat + Xr_lon + Xr_abar, 
+    data = wind_sample_data, family = tweedie(link = "log"))
+\end{verbatim}
+
+The model can be mathematically represented as:
+
+\[
+\begin{aligned}
+y_i &\sim \text{Tweedie}(\mu_i, \phi, p) \\
+\log(\mu_i) &= \beta_0 + \beta_1 \cdot \text{Xr\_time}_i + \beta_2 \cdot \text{Xr\_lat}_i + \beta_3 \cdot \text{Xr\_lon}_i + \beta_4 \cdot \text{Xr\_abar}_i \\
+\mu_i &= \exp(\log(\mu_i)) \\
+\phi &> 0 \quad (\text{Dispersion parameter}) \\
+p &\in (1, 2) \quad (\text{Power parameter})
+\end{aligned}
+\]
+
+The use of the Tweedie distribution with a log link function allows the model to handle the continuous, often zero-inflated and "heavy tailed" nature of wind speed data effectively. The inclusion of smoothed terms for time, latitude, longitude, and average wind speed allows the model to capture complex non-linear relationships in the data.
+\newline
+
+more here later / edit 
+
+\subsection{Comparing Run Times}
+
+\begin{table}[h]
+    \centering
+    \caption{Model Comparison Table For 0.1\% Sample}
+    \label{tab:model_comparison_2}
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+        Model & AIC & BIC & LogLik & Time (s) \\
+        \hline
+        XrMod\_spd & 28103.79 & 28334.88 & -14016.90 & 4.27 \\
+        XrMod\_spd\_reml & 28050.60 & 28281.69 & -13990.30 & 23.00 \\
+        XrMod\_spd\_gauss & 30182.61 & 30407.10 & -15057.30 & 1.89 \\
+        XrMod\_spd\_reml\_gauss & 29997.87 & 30222.36 & -14964.94 & 11.43 \\
+        gam\_spd\_model & 30112.98 & 30304.83 & -15027.43 & 0.63 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+
+\begin{table}[h]
+    \centering
+    \caption{Model Comparison Table For 1\% Sample}
+    \label{tab:model_comparison}
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+        Model & AIC & BIC & LogLik & Time (s) \\
+        \hline
+        XrMod\_spd & 279775.7 & 280087.2 & -139852.9 & 32.00 \\
+        XrMod\_spd\_reml & 279801.8 & 280113.2 & -139865.9 & 265.97 \\
+        XrMod\_spd\_gauss & 327887.7 & 328190.2 & -163909.8 & 22.13 \\
+        XrMod\_spd\_reml\_gauss & 327763.0 & 328065.6 & -163847.5 & 115.05 \\
+        gam\_spd\_model & 327812.4 & 328139.4 & -163869.5 & 4.45 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+
+
+\begin{table}[h]
+    \centering
+    \caption{Model Comparison Table For 10\% Sample}
+    \label{tab:model_comparison_3}
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+        Model & AIC & BIC & LogLik & Time (s) \\
+        \hline
+        XrMod\_spd & 2791679 & 2792071 & -1395805 & 156.31 \\
+        XrMod\_spd\_gauss & 3331322 & 3331703 & -1665627 & 65.18 \\
+        gam\_spd\_model & 3330970 & 3331394 & -1665447 & 19.71 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Model Comparison Table For 50\% Sample}
+\label{tab:model_comparison}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+Model & AIC & BIC & LogLik & Time (s) \\
+\hline
+XrMod\_spd & 13,954,269 & 13,954,717 & -6,977,100 & 1117.67 \\
+XrMod\_spd\_gauss & 16,649,991 & 16,650,426 & -8,324,961 & 342.40 \\
+gam\_spd\_model & 16,648,487 & 16,648,974 & -8,324,206 & 112.74 \\
+\hline
+\end{tabular}
+\end{table}
+
+We assume that \textbf{mgcv} is far more optimized in it's smooth term generation and application, than our crude, first try, smooth \textbf{Xr}-terms. Thus for small data sets mgcv should certainly be faster. However, we hypothesize that with increasing data size, the utilization of \texttt{TMB} in our models (using \texttt{glmmTMB}) can perhaps compensate and provide decent efficiency for large models.  
+
+In the given dataset, it is evident that models utilizing Restricted Maximum Likelihood (REML) exhibit significantly slow computational performance. Additionally, the accuracy of Gaussian models deteriorates rapidly as the sample size (\(n\)) increases. Although the \texttt{mgcv} package does not natively support the Tweedie distribution, an initial attempt was made to implement a custom distribution. This was done by first training a preliminary model using the \texttt{glm2} and \texttt{statmod} packages to estimate the \(p\) parameter. However, this approach proved to be unsuccessful when applied to the \texttt{mgcv} model.
+\newline
+
+We proceed with testing the models using default fit method (ML), and compare \textbf{Xr}-gaussian with \textbf{gam}-gaussian, and the \textbf{Xr}-tweedie (which we know should be significantly slower). What we are looking for is to see if the difference in speed across the methods stay constant or if as the data increases, the relative speed difference deacreases (or increases). 
+\newline
+
+It is evident that as the dataset size increases, models fitted using \texttt{glmmTMB} with \textbf{Xr}-terms are becoming increasingly competitive in terms of both performance and runtime. When the number of knots in the spline is reduced from 10 to 4 and applied to the entire dataset, the runtime difference becomes negligible. It is noteworthy that the Tweedie model executed successfully with 10 knots across the entire dataset. In contrast, I was unable to run the Gaussian models from either \texttt{glmmTMB} or \texttt{mgcv} due to memory allocation failures. These tests were conducted on a freshly rebooted computer with all non-essential tasks terminated via the task manager, and with rigorous garbage collection and environment cleaning procedures applied before each model run. Both the Gaussian \texttt{gam} model and the Gaussian \textbf{Xr} model appear to demand more memory than the \textbf{Xr}-Tweedie model. However, on smaller data subsets, the Gaussian models execute significantly faster than their Tweedie counterpart.
+
+
+
+ 
+\end{verbatim}
+
+\begin{table}[h]
+\centering
+\caption{Benchmark Results for s2rPred Functions}
+\label{table:benchmark_results}
+\begin{tabular}{lrrrrrr}
+\hline
+Function & Min (s) & 1st Qu. (s) & Mean (s) & Median (s) & 3rd Qu. (s) & Max (s) \\
+\hline
+s2rPred\_Original & 13.26 & 13.28 & 13.31 & 13.29 & 13.30 & 13.51 \\
+s2rPred\_Optimized & 13.23 & 13.25 & 13.27 & 13.26 & 13.27 & 13.42 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Time taken for generating smooth terms (Latest)}
+\label{tab:timing_latest}
+\begin{tabular}{|c|c|}
+\hline
+Variable & Time (seconds) \\
+\hline
+datetime\_UTC & 176 \\
+latitude & 11.94 \\
+longitude & 11.81 \\
+abar & 80.31 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Time taken for generating smooth terms original}
+\label{tab:timing_most_recent}
+\begin{tabular}{|c|c|}
+\hline
+Variable & Time (seconds) \\
+\hline
+datetime\_UTC & 177.41 \\
+latitude & 11.96 \\
+longitude & 11.91 \\
+abar & 80.11 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+The implementation of the "optimzed" \texttt{s2rPred} function above doesn't yield any significant performance advantage. Some possible explanations for why are:
+\newline
+
+The base \texttt{R} functions used in the original s2rPred might already be highly optimized, making the gains from using Rcpp and Armadillo marginal. The Rcpp and Armadillo versions might introduce some overhead, such as data type conversions between \textbf{R} and \texttt{C++}, which could offset the gains from using optimized \textbf{C++} libraries. If the matrix operations are not the primary bottlenecks in the function, then optimizing them may not lead to significant improvements. The bottleneck in performance is likely to be found elsewhere. 
+
+
+
+
+\subsubsection{Computational Efficiency and Optimization}
+
+Some ideas for increasing efficiency. 
+\newline
+
+
+\textbf{Matrix Operations}: Matrix operations can be computationally expensive. Consider using specialized libraries like `RcppArmadillo` for faster matrix operations.
+\newline
+
+\textbf{Data Storage}: Storing the prediction matrix (`X`) and other large objects in a more efficient data structure can save both time and memory. Sparse matrices? Use data.table. Column wise operations. Pass by reference. 
+\newline
+
+\textbf{Parallel computing}: If the generation of smooth terms can be done independently, consider parallelizing this part of the code. Try using future map function for parallel generation of smooth terms. 
+\newline
+
+\textbf{Lazy evaluation}: If the smooth terms are not immediately necessary for all data points, consider generating them on-the-fly or in batches.
+\newline
+
+\textbf{Profiling}: Use R's profiling tools to identify bottlenecks in your code.
+
+
+\begin{verbatim}
+### Trying a more optimzed s2rPred function ###
+Rcpp::cppFunction('
+Rcpp::List s2rPredArma(arma::mat X, arma::mat trans_U, arma::rowvec trans_D, arma::uvec rind, arma::uvec pen_ind) {
+  // Transform to r.e. parameterization
+  if (trans_U.n_rows > 0) {
+    X = X * trans_U;
+  }
+  
+  X.each_row() %= trans_D;
+  
+  // Re-order columns according to random effect re-ordering
+  X.cols(rind) = X.cols(arma::find(pen_ind > 0));
+  
+  // Re-order penalization index in the same way
+  pen_ind.elem(rind) = pen_ind.elem(arma::find(pen_ind > 0));
+  
+  // Start return object
+  Rcpp::List r;
+  
+  arma::mat Xf = X.cols(arma::find(pen_ind == 0));
+  Rcpp::NumericMatrix Xf_rcpp(Xf.n_rows, Xf.n_cols, Xf.begin());
+  r["Xf"] = Xf_rcpp;
+  
+  Rcpp::List rand_new;
+  
+  for (unsigned int i = 0; i < arma::max(pen_ind); ++i) {
+    arma::mat X_rand = X.cols(arma::find(pen_ind == (i + 1)));
+    Rcpp::NumericMatrix X_rand_rcpp(X_rand.n_rows, X_rand.n_cols, X_rand.begin());
+    rand_new.push_back(X_rand_rcpp);
+  }
+  
+  r["rand"] = rand_new;
+  
+  return r;
+}', depends = "RcppArmadillo")
+
+
+# Your s2rPred function using RcppArmadillo
+s2rPred <- function(sm, re, data) {
+  X <- PredictMat(sm, data)  # get prediction matrix for new data
+  
+  # Call the RcppArmadillo function
+  r <- s2rPredArma(as.matrix(X), as.matrix(re$trans.U), as.matrix(re$trans.D), 
+                   as.integer(re$rind) - 1, as.integer(re$pen.ind))
+  
+  # Add attributes and names
+  for (i in 1:length(re$rand)) {
+    attr(r$rand[[i]], "s.label") <- attr(re$rand[[i]], "s.label")
+  }
+  names(r$rand) <- names(re$rand)
+  
+  return(r)
+}
+
+\end{verbatim}
+

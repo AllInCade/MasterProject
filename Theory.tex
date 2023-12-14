@@ -1,0 +1,404 @@
+### The Connection Between the "S Matrix" and the Function `mgcv::smooth2random`
+
+#### Introduction
+
+In statistical modeling, particularly in Generalized Additive Models (GAMs), the "  S matrix" is a penalty matrix that is used to impose smoothness constraints on the estimated functions. The function `mgcv::smooth2random` in the R package `mgcv` is used to convert a smooth term into a random effect, facilitating its use in mixed models like those fitted by `glmmTMB`.
+
+#### Mathematical Description
+
+Let \( S \) be the penalty matrix for a smooth term, defined in the original scale. This matrix is used to penalize the wiggliness of the smooth term. The penalty term is given by:
+
+\[
+\text{Penalty} = \mathbf{b}^T S \mathbf{b}
+\]
+
+where \( \mathbf{b} \) is the vector of basis function coefficients.
+
+The function `mgcv::smooth2random` transforms this smooth term into a random effect by providing a transformation matrix \( A \) and its diagonal matrix \( D \). The transformation is defined as:
+
+\[
+\mathbf{b}_{\text{fit}} = A^{-1} \mathbf{b}_{\text{original}}
+\]
+
+The penalty term in the fit scale becomes:
+
+\[
+\text{Penalty}_{\text{fit}} = \mathbf{b}_{\text{fit}}^T \mathbf{b}_{\text{fit}} = \mathbf{b}_{\text{original}}^T (A^{-1})^T A^{-1} \mathbf{b}_{\text{original}}
+\]
+
+Thus, we can relate \( S \) and \( A \) as:
+
+\[
+S = (A^{-1})^T A^{-1}
+\]
+
+#### Code Explanation
+
+1. **Setting up the smooth term**: The code uses `mgcv::smoothCon` to set up a penalized thin-plate regression spline for a continuous covariate \( x \).
+
+    ```R
+    sm <- mgcv::smoothCon(s(x), data=as.data.frame(x))[[1]]
+    ```
+
+2. **Extracting the S matrix**: The penalty matrix \( S \) is extracted from `sm$S[[1]]`. Some rows and columns are removed for specific reasons related to the model.
+
+    ```R
+    S <- sm$S[[1]][-(9:10),-(9:10)]
+    ```
+
+3. **Transforming to Random Effect**: The `mgcv::smooth2random` function is used to get the transformation matrix \( A \) and its diagonal \( D \).
+
+    ```R
+    re <- mgcv::smooth2random(sm, "", type=2)
+    A <- (re$trans.U %*% diag(re$trans.D))[-(9:10),-(9:10)]
+    ```
+
+4. **Verifying the Relationship**: The code verifies that \( S = (A^{-1})^T A^{-1} \).
+
+    ```R
+    S - t(solve(A))%*%solve(A)
+    ```
+
+#### Conclusion
+
+The code demonstrates the mathematical relationship between the penalty matrix \( S \) in the original scale and the transformation matrix \( A \) in the fit scale. This relationship is crucial for understanding how smooth terms can be incorporated as random effects in mixed models.
+
+You can copy and paste this explanation directly into Overleaf for your documentation or thesis work.
+
+Ben Bolker, using the s2rPred function has so far accomplished the following. 
+\newline
+
+\subsection*{Successful Parts:}
+
+\begin{enumerate}[label=\arabic*.]
+    \item \textbf{Model Fitting:}
+    \begin{itemize}
+        \item Both \texttt{mgcv} and \texttt{glmmTMB} have been successfully used to fit models to the \texttt{sleepstudy} dataset.
+        \item The \texttt{Nile} dataset has also been used to fit models using both packages.
+    \end{itemize}
+    
+    \item \textbf{Data Transformation:}
+    \begin{itemize}
+        \item The \texttt{sleepstudy} and \texttt{Nile} datasets have been successfully loaded and transformed for analysis.
+    \end{itemize}
+    
+    \item \textbf{Visualization:}
+    \begin{itemize}
+        \item A custom plotting function (\texttt{pfun}) has been created to visualize the relationship between starting \texttt{theta} values and estimated \texttt{theta} values for a series of models.
+    \end{itemize}
+    
+    \item \textbf{Comparisons:}
+    \begin{itemize}
+        \item Log-likelihoods of the two models (\texttt{mgcv1} and \texttt{gtmb1}) have been compared.
+        \item Fixed effects, random effects, fitted values, and predicted values of the models have been compared using the \texttt{all.equal} function.
+    \end{itemize}
+\end{enumerate}
+
+
+\subsection{Viability of \(X_r\) Terms (speculation)}
+
+The \(X_r\) terms offer a flexible way to model complex relationships. They combine the benefits of smooth terms and random effects, providing a nuanced understanding of the data (??).
+
+\subsection{Splines and Basis Function Expansions}
+
+\subsubsection{Mathematical Description}
+
+\textbf{Splines:} A spline is a piecewise-defined polynomial function. In the simplest case, a spline \( S(x) \) of degree \( k \) is defined as:
+
+\[
+S(x) = \begin{cases} 
+P_1(x) & \text{for } x \in [a_1, a_2) \\
+P_2(x) & \text{for } x \in [a_2, a_3) \\
+\vdots \\
+P_n(x) & \text{for } x \in [a_n, a_{n+1}]
+\end{cases}
+\]
+
+where \( P_i(x) \) are polynomial functions of degree \( k \) and \( a_1, a_2, \ldots, a_{n+1} \) are the knots that partition the domain.
+
+\textbf{Basis Function Expansions:} A basis function expansion represents a function \( f(x) \) as a linear combination of basis functions \( \phi_i(x) \):
+
+\[
+f(x) = \sum_{i=1}^{n} \beta_i \phi_i(x)
+\]
+
+The basis functions \( \phi_i(x) \) can be any set of functions, not necessarily polynomials.
+
+\subsubsection{Intuitive Description (chatGPT)}
+
+\textbf{Splines:} Imagine you have several small sticks (polynomials) and you want to lay them end-to-end to approximate a curve. Each stick can bend or curve within its own region, but it must meet the next stick smoothly at the "knots." This is essentially what a spline does. It uses piecewise polynomials to approximate complex curves.
+
+\textbf{Basis Function Expansions:} Think of basis function expansions like building blocks. You have a set of basic shapes (basis functions), and you can scale and add them together to approximate any shape (function) you like. These basis functions could be anything—polynomials, sine and cosine functions, etc.
+
+\subsubsection{Differences}
+
+\textbf{Mathematically:}
+\begin{itemize}
+    \item Splines are constrained to be piecewise polynomials, whereas basis function expansions can use any set of functions as basis.
+    \item Splines require the polynomials to be smooth at the knots, but basis function expansions have no such requirement.
+\end{itemize}
+
+\textbf{Intuitively:}
+\begin{itemize}
+    \item Splines are like a smooth road made of small, connected segments, each with its own curvature.
+    \item Basis function expansions are like a mosaic made up of various shapes that together form a complete picture.
+\end{itemize}
+
+\subsubsection{Conclusion}
+
+While splines are a specific type of basis function expansion using piecewise polynomials, basis function expansions are more general and can use any set of functions as basis. Both are powerful tools for approximating complex functions, but they differ in flexibility and constraints.
+\subsection{Comparing gtmb0 and gamm\_model in R}
+
+\subsubsection{Summaries and AIC/BIC}
+
+The summary prints for the models suggest that they are quite similar, but due to the structure, complexity and size of the models, it's not an obvious conclusion that the models are equivalent, since the format of the summary prints are quite different and include very many terms. 
+\newline
+Also no AIC or BIC was possible to compute for the \texttt{gamm\_model}, so we have nothing to compare the scores of \texttt{gtmb0} to. 
+
+\subsubsection{Residual plots}
+
+insert plots here
+
+\subsubsection{Calculating RMSE for the models}
+
+We have used the \texttt{"caTools"} package to split our data into a training set and a testing set, and then refit our models to be able to calculate their root mean squared error (RMSE). Code in Appendix. 
+\newline
+
+ RMSE is defined as:
+
+\[
+\text{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2}
+\]
+
+Where \(y_i\) is the actual value, \(\hat{y}_i\) is the predicted value, and \(n\) is the number of observations.
+\newline
+
+We get the following RMSE prints 
+
+\begin{verbatim}
+    "RMSE for gtmb0:       11.157443"
+    "RMSE for gamm_model:  11.199512"
+\end{verbatim}
+
+These values are very close. 
+
+\subsubsection{Equivalence testing}
+
+Using the \texttt{"TOSTER"} package to perform Two One-Sided Tests (TOST) using the \texttt{tusm\_TOST()} function (code in Appendix). 
+\newline
+
+\begin{enumerate}
+    \item \textbf{Equivalence Test}: The equivalence test was significant with \( t(1144) = 3.385 \) and \( p = 3.68 \times 10^{-4} \). This implies that the null hypothesis of non-equivalence can be rejected, suggesting that the residuals from the two models (`gtmb0` and `gamm\_model`) are statistically equivalent within the predefined bounds.
+    
+    \item \textbf{Null Hypothesis Significance Test (NHST)}: The null hypothesis test was non-significant with \( t(1144) = -6.837 \times 10^{-13} \) and \( p = 1 \). This implies that the null hypothesis that the effect is equal to zero is not rejected, indicating that there is no significant difference between the residuals of the two models.
+    
+    \item \textbf{Effect Sizes}: The raw estimate and Hedges's \( g \) are both extremely close to zero, further supporting the idea that the two models are equivalent in terms of their residuals.
+\end{enumerate}
+
+\subsubsection{Interpretation}
+
+\begin{itemize}
+    \item \textbf{NHST}: The non-significant result in the null hypothesis significance test suggests that there is no significant difference between the residuals of the two models. This is what would be expected if the models are indeed similar.
+    
+    \item \textbf{TOST}: The significant result in the equivalence test indicates that not only are the residuals from the two models not significantly different, but they are also statistically equivalent within the predefined bounds. This is strong evidence that the two models are producing very similar results.
+    
+    \item \textbf{Effect Sizes}: The effect sizes are negligible, which is consistent with the other tests and supports the conclusion of equivalence.
+\end{itemize}
+
+\subsubsection{Testing a different model}
+Despite the very strong evidence obtained from the 'chigaco' data models that the two models are equivalent, let's make sure by trying a different data set as well. 
+
+The data set on trial this time is the \texttt{ipo} data from the \texttt{gamair} package. 
+
+We think that the \texttt{ir} (initial return) variable could be of interest to predict, and that the \texttt{dp} (percentage difference) may be a strong predictor of this response, and quite possibly in a non-linear way. Hence we fit the model
+
+\[
+\text{initial retur } \sim s(percentage difference)
+\]
+
+Which translates to the following two models
+   
+    \[
+    \text{ir} = \beta_0 + s(dp) + \epsilon
+    \]
+    
+    
+    \[
+    \text{ir} = \alpha_0 + \alpha_1 Xr_{dp} + \epsilon
+    \]
+
+\textbf{Summary of TOST}
+
+\begin{itemize}
+    \item \textbf{NHST}: The p-value is 1, indicating that we fail to reject the null hypothesis that the effect is equal to zero. This suggests that the two models (\textit{gam1} and \textit{glmmTMB1}) do not significantly differ in their ability to predict \textit{ir}.
+    
+    \item \textbf{Equivalence Test (TOST)}: The p-value is 0.058, slightly above the alpha level of 0.05. This means that we fail to reject the null hypothesis of the equivalence test, suggesting that the data do not provide sufficient evidence to claim that the two models are equivalent within a predefined margin.
+    
+    \item \textbf{Effect Sizes}: Both the raw estimate and Hedges's g are essentially zero, indicating no practical difference between the two models.
+\end{itemize}
+
+The results once again suggest that the models are equivalent. 
+
+
+\subsection{Comparing s() terms in glmmTMB and mgcv}
+The s() terms in glmmTMB seem to have the same base we encounter in mgcv, however there are some restrictions in the functions within s().
+
+Along with the default thin plate regression, there are several basis functions we have not encountered problems with.
+
+
+\begin{table}[h]
+    \centering
+    \caption{TMB-appropriate \( s() \) functions}
+    \label{tab:TMB-functions}
+    \begin{tabularx}{\textwidth}{|c|X|}
+        \hline
+        Function & Description \\
+        \hline 
+        \( \text{bs} = \text{"cr"} \) & Cubic Regression Splines \\
+        \hline 
+        \( \text{bs} = \text{"ps"} \) & P-Splines, B-splines with a difference penalty to make them smooth  \\
+        \hline
+        \( t2(x1,x2) \) & Tensor product smooths \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+A limited function we encounter is the knot function. In mgcv the k parameter can be set all the way down to 3, which is the same in glmmTMB, but we encounter problems when we are trying to visualize the model in summary, with the random conditional model encountering an index error.
+
+
+
+
+
+
+\newline
+Over to the functions we have not made progress with. Most of these we will try to explain later when we delve into Johnsons way to interpret s() functions in glmmTMB. Here are a few examples:
+
+\begin{table}[h]
+    \centering
+    \caption{Not Fit for \( s() \) in TMB}
+    \label{tab:NotFitForTMB}
+    \begin{tabularx}{\textwidth}{|c|X|}
+        \hline
+        Function & Description \\
+        \hline
+        \( \text{bs} = \text{"re"} \) & Random Effects, used for grouping factors \\
+        \hline
+        \( \text{te}(x1, x2) \) &   Tensor Product Smooths. \\
+        \hline
+        \( \text{bs} = \text{"cs"} \) &  Simple Cubic Splines  \\
+        \hline
+        \( \text{bs} = \text{"cc"} \) &  Cyclical Cubic Regression Splines \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+The reason for the problems we encounter in the different basis functions is because of the Xf-term we later will talk about in the Johnson vs Bolker section.
+
+
+\subsubsection{Difference between \texttt{te()} and \texttt{t2()} in R's mgcv package}
+
+Both \texttt{te()} and \texttt{t2()} are used for specifying tensor product smooths in generalized additive models (GAMs) using the \texttt{mgcv} package in R. However, they differ in the way they handle constraints and penalties on the basis functions.
+
+\begin{itemize}
+    \item \textbf{te()}: This function imposes identifiability constraints on the tensor product smooth. It ensures that the estimated smooth does not include components that can be represented as the sum of lower-dimensional smooths of the individual variables. This makes the model easier to interpret and is the standard choice for most tensor product smooths.
+    
+    \item \textbf{t2()}: This function allows for unconstrained tensor product smooths. It does not impose the identifiability constraints that \texttt{te()} does. This offers more flexibility but generally makes the model harder to interpret.
+\end{itemize}
+
+In summary, use \texttt{te()} for situations where interpretability is essential, and \texttt{t2()} when you need more flexibility and are less concerned about straightforward interpretation. The reason we can only use the \textbf{t2()} function is because te() smooths is not useable with gamm4-package.
+
+
+
+
+\subsection{Comparing Xr terms and s() terms in R}
+
+We will also compare the Xr terms we have made to a type of s() terms which have been coded directly to the \texttt{glmmTMB} package by Ben Bolker. This has however caused some issues when running the models, such as convergence failure, so we test if our method could give better results, starting with the chicago data set we have used earlier.
+\newline
+\begin{verbatim}
+    gtmb0s <- glmmTMB(formula = death ~ s(tmpd), 
+                 data = chicago, REML = TRUE)
+
+    gtmb0Xr <- glmmTMB(formula = death ~ Xr_tmpd, 
+                 data = chicago, REML = TRUE)
+
+
+    gam0<- gam(formula = death ~ s(tmpd), 
+           data = chicago, REML=TRUE)
+
+        
+\end{verbatim}
+
+Comparing the summaries of the models, they are all quite similar with the covariate of temperature being decently significant. Something that is worth noticing is the difference in 1 degrees of freedom. The AIC is slightly better for the Xr terms but they are pretty similar, which we also can see from their model fits.
+\newline
+While analyzing the dharma residuals in the two models, we can see that the Xr terms have better residuals, but is this because they are really better, or does the s() function not work as good with the DHARMa-plots? 
+From the plot of residuals versus fitted values we see that the plots are quite similar, however gtmb0Xr uses a wider range in their fitted values.
+
+\begin{verbatim}
+    "RMSE for gtmb0s:  13.0230351135241"
+    "RMSE for gtmb0Xr:  13.0361758742346"
+\end{verbatim}
+
+\begin{table}[h]
+\centering
+\caption{Comparison of Chicago models}
+\label{table:further_model_comparison}
+\begin{tabular}{|c|c|c|c|}
+\hline
+Model & AIC & BIC & LogLik \\
+\hline
+gtmb0s & 41479.36 & 41505.52 & -20735.68 \\
+\hline
+gtmb0Xr & 41414.78 & 41480.18 & -20697.39 \\
+\hline
+gam0 & 41456.82 & 41522.19 & -20718.41 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\subsection{Comparing Ben Bolker and Devin Johnson method }
+
+To implement splines in glmmTMB there have been to different approaches before. Bolker has implemented the spline function into the glmmTMB-package using some of Devin Johnsons method along with algorithms found in mgcv.
+
+Although using REML in these two models will give similar outputs, they are not identical,  we would like to delve into how and why this occurs. We proceed using the chicago dataset to make model using Johnsons method and comparing it to gtmb0s from the section above:
+
+
+\begin{verbatim}
+    ftmb1 <- glmmTMB(formula = death ~ 0 + Xf_tmpd + 
+    homdiag(0 + Xr_tmpd | fake_group), data = chicago,
+    REML = TRUE)
+        
+\end{verbatim}
+
+
+From the summary outputs we can see that the random conditional model is identical for these two glmmTMB-models, the spline function estimate in Bolkers method is also identical with the estimate Xftmpd1, however the intercept and Xftmpd2 are not the same, this is something we need to understand.
+
+
+
+
+\subsection{Model convergence issues using s()}
+
+When using the chicago dataset, if we want to make a model based on the p10median-variable we have to omit the variables NA-values. When we do this our basic model only using temperature as a spline will have model convergence problems, non-positive-definite Hessian matrix. Another change we see from removing the NA-values is that the second Xf-term will shift from 1 to -1, could these two differences have something to do with each other?
+
+
+
+
+
+\subsection{Multiple \( s() \) Terms in \texttt{glmmTMB} and \texttt{mgcv}}
+
+The terms in the model are additive, meaning they contribute independently to the response variable. The smooth terms in \texttt{glmmTMB} behave similarly to those in \texttt{mgcv}, with each \( s() \) term being additive and capturing different aspects of the relationship between the predictors and the response variable.
+
+
+In \texttt{glmmTMB}, it is common to represent smooth terms as random effects with a specific covariance structure that induces smoothing. This approach allows the fitting of additive models within the mixed modeling framework. However, the assumption of additivity still holds; each term contributes independently to the model.
+
+
+Similar to \texttt{mgcv}, if multiple \( s() \) terms model similar relationships or are based on similar predictors, collinearity might be an issue. When using smooth terms as random effects, it is essential to ensure that their covariance structures are identifiable.
+
+
+The computational cost can be high, especially when combining complex random effects structures with multiple smooth terms. \texttt{glmmTMB} generally offers more flexibility in the kinds of random-effects structures that can be fit compared to \texttt{mgcv}, but this comes at the cost of increased computational time.
+
+
+Each smooth term can be interpreted in a way similar to how one would interpret them in a GAM but now within the mixed modeling framework. Each term provides insights into how a particular predictor influences the response while accounting for the other terms in the model.
+
+
+In conclusion, the multiple \( s() \) terms in \texttt{glmmTMB} work additively and independently, similar to how they work in \texttt{mgcv}. The primary difference lies in the framework—\texttt{glmmTMB} fits these models within a mixed-model framework, allowing for greater flexibility in specifying random effects. However, the same considerations regarding identifiability, interpretability, and computational complexity apply.
