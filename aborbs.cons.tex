@@ -1,0 +1,10 @@
+\subsubsection{Absorbing constraints in SmoothCon}
+
+The \texttt{absorbs.cons} function in the \texttt{glmmTMB} package plays a crucial role in addressing specific modeling challenges, particularly in the context of generalized additive mixed models (GAMMs). Its primary purpose is to absorb identifiability constraints into the basis of smooth terms in the model. This functionality is especially valuable in scenarios where intercept confounding can be an issue.
+
+
+\paragraph{Role of \texttt{absorbs.cons}}
+By setting \texttt{absorbs.cons = TRUE}, the function alters the basis functions of the smooth terms to be orthogonal to the intercept. This alteration ensures that the smooth terms are independent of the intercept, thereby enhancing the model's identifiability. In practical terms, this means that the effect captured by each smooth term in the model is distinct and does not overlap with the constant effect captured by the intercept.
+
+\paragraph{Applications in \texttt{glmmTMB}}
+In \texttt{glmmTMB}, the use of \texttt{absorbs.cons} is particularly beneficial when dealing with multiple smooth terms or when the model structure is complex. It ensures that each term in the model, including the smooth terms, contributes uniquely to explaining the variability in the data, leading to more reliable and interpretable results.

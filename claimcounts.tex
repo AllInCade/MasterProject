@@ -1,0 +1,22 @@
+\newpage
+
+\subsection{sgautonb Dataset}
+The sgautonb dataset, encompassing automobile injury claim numbers in Singapore, offers a comprehensive view of factors influencing insurance claims. This subsection delves into the key variables and their potential impact on the number of claims (\textit{Clm\_Count}).
+
+\begin{itemize}
+    \item \textbf{SexInsured (Gender of Insured)}: Categorized as Male, Female, or Unspecified, this variable may reflect different risk profiles and driving behaviors, potentially influencing claim frequencies.
+    
+    \item \textbf{VehicleType}: Encompassing types such as Automobile, Truck, and Motorcycle, the variable could indicate varying levels of risk associated with different vehicle types, thereby affecting claim counts.
+    
+    \item \textbf{PC (Private Vehicle)}: This binary indicator of whether a vehicle is private might correlate with usage patterns, influencing the likelihood and frequency of claims.
+    
+    \item \textbf{NCD (No Claims Discount)}: Reflecting the policyholder's accident history, where higher discounts denote better records, NCD could be a strong predictor of future claim tendencies.
+    
+    \item \textbf{AgeCat (Age Category of Policyholder)}: Categorizing policyholders' ages, this variable is crucial in assessing risk, as different age groups may exhibit varied driving behaviors impacting claim frequency.
+    
+    \item \textbf{VAgeCat (Age Category of Vehicle)}: The age of vehicles, grouped categorically, could be significant, with older vehicles potentially having a higher propensity for claims due to increased breakdown risks.
+    
+    \item \textbf{Exp\_weights (Exposure Weight)}: Representing the policy duration as a fraction of the year, longer exposure periods could logically lead to a higher probability of filing claims.
+\end{itemize}
+
+To quantitatively assess the impact of these variables on claim counts, statistical methods such as descriptive analysis, correlation studies, and regression modeling (specifically Poisson or negative binomial regression) are recommended. These approaches, particularly regression analysis, can elucidate the extent to which each factor contributes to the likelihood and frequency of insurance claims. 
