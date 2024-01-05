@@ -402,3 +402,514 @@ Each smooth term can be interpreted in a way similar to how one would interpret 
 
 
 In conclusion, the multiple \( s() \) terms in \texttt{glmmTMB} work additively and independently, similar to how they work in \texttt{mgcv}. The primary difference lies in the framework—\texttt{glmmTMB} fits these models within a mixed-model framework, allowing for greater flexibility in specifying random effects. However, the same considerations regarding identifiability, interpretability, and computational complexity apply.
+
+
+
+
+
+
+
+
+
+
+
+
+
+\subsubsection{Penalized B-Splines (P-Splines) in \texttt{mgcv}}
+
+Penalized B-splines, commonly known as P-splines, are a versatile tool for smoothing and are often used for their computational efficiency and simplicity. In \texttt{mgcv}, P-splines are specified using the basis type \texttt{bs="ps"}.
+
+Mathematically, a P-spline can be represented as:
+
+\begin{equation}
+    f(x) = \sum_{i=1}^{k} \beta_i B_i(x),
+    \label{eq:ps_splines}
+\end{equation}
+
+where \(B_i(x)\) are the B-spline basis functions, and \(\beta_i\) are the coefficients to be estimated. The B-splines are piecewise polynomial functions defined over a sequence of knots. The degree of the polynomial is commonly 3, leading to cubic B-splines, although other degrees can be used.
+\newline
+
+What sets P-splines apart is the penalty term used for smoothing. P-splines commonly use a difference penalty on the coefficients \(\beta\), which can either be a first or second-order finite difference. For first-order differences, the penalty term is:
+
+\begin{equation}
+    \text{Penalty} = \lambda \sum_{i=2}^{k} (\beta_i - \beta_{i-1})^2
+    \label{1st_order_penalty,}
+\end{equation}
+
+and for second-order differences, the penalty term is
+
+\[
+\text{Penalty} = \lambda \sum_{i=3}^{k} (\beta_i - 2\beta_{i-1} + \beta_{i-2})^2,
+\]
+
+where \(\lambda\) is the smoothing parameter that controls the strength of the penalty. Higher values of \(\lambda\) result in a smoother curve, while lower values allow for more wiggly fits.
+
+
+
+
+P-splines combine the flexibility of B-splines with the simplicity of a difference penalty. They are computationally efficient, easy to implement, and can be very effective for a wide range of smoothing tasks. They are particularly useful when a balance of flexibility and smoothness in the estimated function \(f(x)\) is desired.
+
+
+
+
+\subsubsection{Thin Plate Splines and Their Decomposition}
+
+\begin{enumerate}
+    \item \textbf{Full Thin Plate Spline (\texttt{bs="tp"})}:
+    \begin{itemize}
+        \item In a full thin plate spline, the basis functions are defined in such a way that they apply across the entire range of the data. They are more global in nature.
+        \item When using the \texttt{smoothCon} \citep[pp.~327]{wood2017} and \texttt{smooth2random} \cite{mgcvmanual} functions to prepare these splines for \texttt{glmmTMB}, the decomposition usually yields only an \texttt{Xr} term, with no corresponding \texttt{Xf}.
+ This is because the penalty for thin plate splines makes it difficult to naturally separate them into fixed and random components.
+        \item In the context of GLMMs, the entire spline term will behave as a random effect in the model.
+    \end{itemize}
+    
+    \item \textbf{Thin Plate Regression Splines (\texttt{bs="tp"})}:
+    \begin{itemize}
+        \item Similar to full thin plate splines, but they are a lower-rank approximation and hence computationally more efficient.
+        \item The decomposition into \(Xf\) and \(Xr\) would depend on the specific properties of the basis functions and the penalty term. It's likely that you will also only get an \(Xr\) term.
+    \end{itemize}
+\end{enumerate}
+
+
+\subsubsection*{Mathematical Representation of Thin Plate Regression Splines}
+
+Thin plate regression splines are a computationally efficient approximation of full thin plate splines. They are generally represented using a subset of the basis functions used in full thin plate splines, effectively creating a lower-rank approximation. The mathematical representation can be written as:
+
+\[
+f(x) = \beta_0 + \sum_{i=1}^{m} \beta_i x_i + \sum_{j=1}^{k} \gamma_j \phi(|| x - x_{j} ||)
+\]
+
+Here, \( \beta_0 \) is the intercept, \( \beta_i \) are the coefficients for the linear terms \( x_i \), \( \gamma_j \) are the coefficients for the radial basis functions \( \phi(|| x - x_{j} ||) \), \( x_j \) are the selected knot locations, and \( k \) is the reduced rank of the spline. The radial basis function \( \phi(r) \) depends on the dimensionality and is usually more complex in higher dimensions.
+
+This lower-rank approximation makes thin plate regression splines computationally more efficient while still retaining many desirable properties of full thin plate splines.
+
+
+\subsubsection*{Mathematical Representation of Full Thin Plate Splines}
+
+Full thin plate splines are a type of global smoother that use radial basis functions to represent the smooth. In the one-dimensional case, the mathematical representation of a full thin plate spline can be written as:
+
+\[
+f(x) = \sum_{i=1}^{n} \alpha_i \phi(|| x - x_i ||)
+\]
+
+Here, \( \phi(r) \) is a radial basis function, \( \alpha_i \) are the coefficients to be estimated, \( x_i \) are the knot locations, and \( n \) is the number of knots. The radial basis function \( \phi(r) \) is usually defined as \( r^2 \log(r) \) for \( r > 0 \) and zero otherwise. This function has desirable mathematical properties, such as rotational invariance, which makes it useful for multidimensional smoothing as well.
+
+The complexity and global nature of these basis functions make full thin plate splines computationally intensive, especially when the number of knots is large or the dimensionality is high.
+
+
+
+Thin plate splines are more likely to be represented entirely as random effects (\(Xr\)) in the mixed model framework when prepared for \texttt{glmmTMB} using \texttt{mgcv}'s \texttt{smoothCon} and \texttt{smooth2random}. The global nature of these splines and their penalty structure make it difficult to decompose them into separate fixed (\(Xf\)) and random (\(Xr\)) components. Thin plate regression splines however will have both components added to their model, as we see the fixed terms as the beta-values in its mathematical representation.
+
+
+\subsubsection{Cyclical Cubic Splines and Comparison with Regular Cubic Splines}
+
+
+The cyclical cubic spline is a special case of cubic splines where the function is constrained to be cyclic at the endpoints. This means that the function value and its first and second derivatives at the endpoints are the same, ensuring smooth transitions.
+
+
+
+Mathematically, a cyclical cubic spline \( f(x) \) can be represented as a linear combination of cubic basis functions \( B_i(x) \) and coefficients \( \beta_i \), similar to regular cubic splines:
+
+\[
+f(x) = \sum_{i=1}^{k} \beta_i B_i(x)
+\]
+
+Here, \( k \) is the number of knots, and \( B_i(x) \) are the cubic basis functions. However, the basis functions are constructed to ensure that the function is cyclic. Specifically, they are designed so that:
+
+\[
+f(x_1) = f(x_n), \quad f'(x_1) = f'(x_n), \quad f''(x_1) = f''(x_n)
+\]
+
+
+
+The penalty term for cyclical cubic splines is usually based on the integrated squared second derivative, similar to regular cubic splines:
+
+\[
+\text{Penalty} = \lambda \int [f''(x)]^2 \, dx
+\]
+
+However, the penalty matrix would be constructed to reflect the cyclical nature of the spline, taking into account the constraints at the endpoints.
+
+
+\paragraph{Cubic Smoothing Splines (\texttt{bs="cs"})}
+
+Cubic smoothing splines are designed to model data without any specific constraints at the endpoints. These splines are often smoother due to a different penalty term that targets the entire curve. When decomposed for use in \texttt{glmmTMB} through \texttt{mgcv}'s \texttt{smoothCon} and \texttt{smooth2random} functions, cubic smoothing splines do not decompose into a fixed (\(X_f\)) component. This is because the penalty term for smoothing splines makes it difficult to naturally separate them into fixed and random components.
+
+\paragraph{Cubic Cyclical Splines (\texttt{bs="cc"})}
+
+Cubic cyclical splines are constrained to have the same function value at both endpoints. They are useful for modeling cyclical or seasonal data. This cyclical constraint often leads to a single \(X_f\) term that captures the constant cyclical effect across the data range. The \(X_f\) term essentially represents a fixed effect to ensure the function is smooth and equal at both ends.
+
+
+
+
+
+
+
+
+
+
+Penalized regression is a class of techniques in statistical modeling that introduces a penalty term to the objective function, usually the residual sum of squares (RSS), to control the complexity of the model. The general form of a penalized regression model can be written as:
+
+\begin{equation}
+\text{Minimize} \quad \sum_{i=1}^{n} (y_i - \mathbf{x}_i^T \boldsymbol{\beta})^2 + \lambda J(\boldsymbol{\beta})
+\end{equation}
+ \cite{wood2017}
+ \newline
+Here, \( \lambda \) is the smoothing parameter, and \( J(\boldsymbol{\beta}) \) is the penalty term. The penalty term serves to regularize or shrink the estimated coefficients \( \boldsymbol{\beta} \) towards zero or each other, thereby reducing the model's complexity and potential for overfitting.
+Penalized regression also helps with stability in cases where there are more predictors than observations, and also makes the model more interpretable.
+
+
+
+
+
+\subsubsection*{Comparison of the Two Penalties}
+
+\textbf{Similarities:}
+\begin{itemize}
+    \item Both penalties involve a regularization parameter \( \lambda \) that controls the extent of the penalty applied.
+    \item Both aim to prevent overfitting by imposing constraints on the function, though in different ways.
+    \item They are both commonly used in the context of regression smoothing and can be incorporated into various types of models, including linear models and splines.
+\end{itemize}
+
+\textbf{Differences:}
+\begin{itemize}
+    \item The Ridge penalty focuses on the magnitude of the function, penalizing large values of the function itself. It is more about keeping the function values close to zero.
+    \item The Integrated Squared Second Derivative penalty targets the curvature or the wiggliness of the function, penalizing the variability in the function's slope. It is concerned with how rapidly the function changes.
+    \item As a result, the Ridge penalty tends to produce functions that are small in magnitude, while the ISSD penalty results in functions that are smoother with less rapid changes in slope.
+\end{itemize}
+
+\subsubsection{The smoothing parameter}
+
+The smoothing parameter, often denoted by \( \lambda \), plays a crucial role in controlling the trade-off between fitting the data well and keeping the model smooth or simple. The smoothing parameter is a non-negative scalar that multiplies the penalty term in the objective function of penalized regression models. Choosing an optimal \( \lambda \) is often done via cross-validation;
+
+
+\begin{itemize}
+    \item \( \lambda = 0 \): No penalty is applied, and the model reduces to ordinary least squares regression for linear models or a non-penalized generalized additive model for GAMs. This could lead to overfitting if the model is complex.
+    \item \( \lambda \) is large: A strong penalty is applied, which can lead to underfitting. In the extreme, all coefficients may be pushed towards zero, resulting in a model that is too simple to capture the underlying pattern in the data.
+    \item \( \lambda \) is moderate: A balance is struck between fitting the data and keeping the model smooth or simple. This is often the desired scenario and is usually determined through techniques like cross-validation.
+\end{itemize}
+
+In the context of smoothing splines, \( \lambda \) controls the smoothness of the fitted curve. A large \( \lambda \) will result in a smoother curve, while a small \( \lambda \) will allow for more wiggles, capturing more of the data's fine-grained structure.
+
+In GAMs, \( \lambda \) can be different for each smooth term, allowing for varying levels of smoothness for different predictors. This is particularly useful when dealing with high-dimensional data or when different predictors have different scales or units.
+
+
+
+
+The general form of a \textbf{glmm} can be expressed as:
+
+\[
+g(\mu_{ij}) = \mathbf{X}_{ij} \boldsymbol{\beta} + \mathbf{Z}_{ij} \mathbf{u}_{j}
+\]
+
+Where:
+- \( g() \) is the link function that relates the mean \( \mu \) of the response variable to the linear predictors.
+- \( \mathbf{X}_{ij} \) is the design matrix for fixed effects.
+- \( \boldsymbol{\beta} \) is the vector of fixed effect parameters.
+- \( \mathbf{Z}_{ij} \) is the design matrix for random effects.
+- \( \mathbf{u}_{j} \) is the vector of random effect parameters for the \( j^{th} \) group.
+
+The random effects \( \mathbf{u}_{j} \) are typically assumed to be normally distributed with mean zero and some covariance matrix \( \mathbf{G} \) (the covariance matrix will later be denoted by $\Sigma$, and also become highly relevant):
+
+\[
+\mathbf{u}_{j} \sim \mathcal{N}(0, \mathbf{G})
+\]
+
+Zero-inflated models account for excess zeros in the data. A zero-inflated Poisson (ZIP) model, for example, can be expressed as:
+
+\[
+y_{ij} = 
+\begin{cases} 
+0 & \text{with probability } \psi + (1-\psi)e^{-\lambda_{ij}} \\
+k & \text{with probability } (1-\psi)\frac{\lambda_{ij}^k e^{-\lambda_{ij}}}{k!} \text{ for } k=1,2,\ldots
+\end{cases}
+\]
+
+Where \( \lambda_{ij} \) is the Poisson rate for observation \( i \) in group \( j \), and \( \psi \) is the zero-inflation parameter.
+
+
+
+In LMMs, REML offers a powerful approach for analyzing hierarchical and clustered data. By accounting for both fixed and random effects, LMMs effectively model complex data, while REML ensures unbiased variance component estimation. These methods are widely applicable across various fields, including biology, economics, and social sciences.
+
+
+
+
+
+
+\subsection{The Connection Between the "S Matrix" and the Function \texttt{mgcv::smooth2random}}
+
+\subsubsection{Introduction}
+
+In statistical modeling, particularly in Generalized Additive Models (GAMs), the "S matrix" is a penalty matrix that is used to impose smoothness constraints on the estimated functions. The function \texttt{mgcv::smooth2random} in the R package \texttt{mgcv} is used to convert a smooth term into a random effect, facilitating its use in mixed models like those fitted by \texttt{glmmTMB}.
+
+\subsubsection{Mathematical Description}
+
+Let \( S \) be the penalty matrix for a smooth term, defined in the original scale. This matrix is used to penalize the wiggliness of the smooth term. The penalty term is given by:
+
+\[
+\text{Penalty} = \mathbf{b}^T S \mathbf{b}
+\]
+
+where \( \mathbf{b} \) is the vector of basis function coefficients.
+
+The function \texttt{mgcv::smooth2random} transforms this smooth term into a random effect by providing a transformation matrix \( A \) and its diagonal matrix \( D \). The transformation is defined as:
+
+\[
+\mathbf{b}_{\text{fit}} = A^{-1} \mathbf{b}_{\text{original}}
+\]
+
+The penalty term in the fit scale becomes:
+
+\[
+\text{Penalty}_{\text{fit}} = \mathbf{b}_{\text{fit}}^T \mathbf{b}_{\text{fit}} = \mathbf{b}_{\text{original}}^T (A^{-1})^T A^{-1} \mathbf{b}_{\text{original}}
+\]
+
+Thus, we can relate \( S \) and \( A \) as:
+
+\[
+S = (A^{-1})^T A^{-1}
+\]
+
+\subsubsection{Code Explanation}
+
+\begin{enumerate}
+    \item \textbf{Setting up the smooth term}: The code uses \texttt{mgcv::smoothCon} to set up a penalized thin-plate regression spline for a continuous covariate \( x \).
+    \begin{verbatim}
+    sm <- mgcv::smoothCon(s(x), data=as.data.frame(x))[[1]]
+    \end{verbatim}
+
+    \item \textbf{Extracting the S matrix}: The penalty matrix \( S \) is extracted from \texttt{sm\$S[[1]]}. Some rows and columns are removed for specific reasons related to the model.
+    \begin{verbatim}
+    S <- sm$S[[1]][-(9:10),-(9:10)]
+    \end{verbatim}
+
+    \item \textbf{Transforming to Random Effect}: The \texttt{mgcv::smooth2random} function is used to get the transformation matrix \( A \) and its diagonal \( D \).
+    \begin{verbatim}
+    re <- mgcv::smooth2random(sm, "", type=2)
+    A <- (re$trans.U %*% diag(re$trans.D))[-(9:10),-(9:10)]
+    \end{verbatim}
+
+    \item \textbf{Verifying the Relationship}: The code verifies that \( S = (A^{-1})^T A^{-1} \).
+    \begin{verbatim}
+    S - t(solve(A))%*%solve(A)
+    \end{verbatim}
+\end{enumerate}
+
+\subsubsection{Conclusion}
+
+The code demonstrates the mathematical relationship between the penalty matrix \( S \) in the original scale and the transformation matrix \( A \) in the fit scale. This relationship is crucial for understanding how smooth terms can be incorporated as random effects in mixed models.
+
+
+
+
+
+In this method, we extract the random effect representation \(X_r\) of the smooth term and use it as a fixed effect in our model. Essentially, we are fitting the model:
+
+\begin{equation}
+y = X_r \beta + \epsilon
+\end{equation}
+
+Here, \(X_r\) is the design matrix for the smooth term, \(\beta\) is the vector of coefficients, and \(\epsilon\) is the error term.
+
+\subsection{Ben Bolker's Method: \(y \sim (X_r | \text{dummy})\)}
+
+Ben Bolker's approach integrates smooth terms directly into the \texttt{glmmTMB} package. The smooth term is represented in both the fixed and random effects part of the model. The model can be represented as:
+
+\begin{equation}
+y = X_f \beta_f + Z \beta_r + \epsilon
+\end{equation}
+
+Here, \(y\) is the \(n \times 1\) response vector, \(X_f\) is the \(n \times q\) design matrix for the fixed effects, \(Z\) is the \(n \times m\) design matrix for the random effects (which includes the smooth terms), \(\beta_f\) is the \(q \times 1\) vector of fixed effect coefficients, \(\beta_r\) is the \(m \times 1\) vector of random effect coefficients, and \(\epsilon\) is the \(n \times 1\) error term.
+
+The likelihood function is augmented with a penalty term \(P\):
+
+\begin{equation}
+L(y | \beta_f, \beta_r) \propto e^{-\frac{1}{2} \beta_r^T S \beta_r}
+\end{equation}
+
+Where \(S\) is the penalty matrix, which is used to smooth the curve.
+
+We have a penalty matrix \(S\) and a basis function matrix \(B\). The smooth term can be represented as:
+
+\begin{equation}
+s(x) = B \alpha
+\end{equation}
+
+Where \( \alpha \) is the vector of smooth coefficients. The penalty term for the smooth is:
+
+\begin{equation}
+P = \alpha^T S \alpha
+\end{equation}
+
+
+e.g cubic splines, the penalty matrix \( S \) is typically a diagonal matrix with the first few diagonal elements set to zero. These zero elements correspond to the basis functions that make up the polynomial part of the spline (usually the intercept and the linear term). The remaining diagonal elements are positive and impose a penalty on the curvature of the spline.
+
+
+\begin{equation}
+S = \begin{pmatrix}
+0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 \\
+0 & 0 & \lambda_1 & 0 \\
+0 & 0 & 0 & \lambda_2
+\end{pmatrix}
+\end{equation}
+
+Here, \( \lambda_1 \) and \( \lambda_2 \) are positive penalty terms.
+
+In Bolker's method, the first two rows and columns from \( S \) are moved to the fixed effect model matrix \( X_f \). Because these rows and columns are zeros, moving them doesn't change the penalty imposed by \( S \). Instead, it changes how these terms are estimated:
+
+- In the \( y \sim X_r \) method, these terms are estimated as fixed effects without any penalty.
+- In the \( y \sim (X_r | \text{dummy}) \) method, these terms are estimated as fixed effects but are also subject to the penalty imposed by the random effects structure.
+\newline
+
+ Let's assume \(S_1\) represents these first two rows and columns, and \(S_2\) represents the remaining part of \(S\).
+
+\begin{equation}
+S = \begin{pmatrix}
+S_1 & 0 \\
+0 & S_2
+\end{pmatrix}
+\end{equation}
+
+The corresponding basis function matrix \(B\) can also be partitioned as \(B = [B_1, B_2]\), where \(B_1\) corresponds to \(S_1\) and \(B_2\) corresponds to \(S_2\).
+
+The smooth term \(s(x)\) can then be partitioned as:
+
+\begin{equation}
+s(x) = B_1 \alpha_1 + B_2 \alpha_2
+\end{equation}
+
+Here, \(\alpha_1\) would be treated as fixed effects and \(\alpha_2\) as random effects.
+
+
+The GLMM is updated to:
+
+\begin{equation}
+y = X_f \beta_f + B_1 \alpha_1 + Z \beta_r + B_2 \alpha_2 + \epsilon
+\end{equation}
+
+Here, \(B_1 \alpha_1\) is part of \(X_f\) and is estimated as fixed effects (\(\beta_f\)), while \(B_2 \alpha_2\) is part of \(Z\) and is estimated as random effects (\(\beta_r\)).
+
+
+\subsection{Key Differences}
+
+\begin{enumerate}
+    \item \textbf{Intercept and Fixed Effects}: In Bolker's method, the first two rows and columns from the penalty matrix \(S\) are moved to the fixed effect model matrix. This essentially acts as an intercept. These terms are part of \(X_f\) and are estimated as fixed effects \(\beta_f\).
+    
+    \item \textbf{Random Effects}: The remaining part of the smooth term is included in the random effects matrix \(Z\), and its effects are estimated as random effects \(\gamma\).
+    
+    \item \textbf{Penalty Matrix}: The penalty matrix \(S\) is used to enforce smoothness, and its coefficients \(\theta\) are estimated in the model.
+\end{enumerate}
+
+
+
+
+
+In summary, the \(X_r\) terms in Xr method are essentially unpenalized, while in Bolker's method, the smooth terms are subject to penalization to enforce smoothness.
+
+Now let's compare the \textbf{Xr} terms to the \textbf{s()} terms by looking at their structure. We will present the \textbf{Xr} term slightly differently here in order to make comparisons a bit easier to undertstand. 
+\newline
+
+The \(Xr\) terms in the `gtmb0` model are essentially basis function expansions that have been transformed into random effects. The model formula for `gtmb0` is:
+
+\[
+\text{death} \sim Xr_{\text{tmpd}} + Xr_{\text{time}} + Xr_{\text{pm10}} + Xr_{\text{pm25}}
+\]
+
+Each \(Xr\) term can be mathematically represented as:
+
+\begin{equation}
+Xr_{\text{cov}} = \sum_{i=1}^{n} \beta_i B_i(x)
+\end{equation}
+
+Where:
+- \( \beta_i \) are the coefficients.
+- \( B_i(x) \) are the basis functions.
+- \( n \) is the number of basis functions.
+\newline
+
+The \(s()\) terms in the `mgcv` model are smooth terms represented by penalized splines. The model formula for the `mgcv` model is:
+
+\begin{equation}
+\text{death} \sim + s(\text{pm10median}) + s(\text{pm25median}) + s(\text{time}) + s(\text{tmpd})
+\end{equation}
+
+
+
+Each \(s()\) term can be mathematically represented as:
+
+\begin{equation}
+s(x) = \sum_{i=1}^{n} \alpha_i B_i(x) + \lambda \int [s''(x)]^2 dx
+\end{equation}
+
+Where:
+- \( \alpha_i \) are the coefficients.
+- \( B_i(x) \) are the basis functions.
+- \( n \) is the number of basis functions.
+- \( \lambda \) is the smoothing parameter.
+
+\subsection{Comparison}
+
+\subsubsection{Smoothing Parameter in $s()$ Terms}
+
+In the \(s()\) terms, the smoothing parameter \(\lambda\) explicitly controls the trade-off between the fit and the smoothness of the curve. Mathematically, the penalty term is:
+
+\begin{equation}
+\lambda \int [s''(x)]^2 dx
+\end{equation}
+
+This term is added to the likelihood function, and its value is optimized during the model fitting process. A larger \(\lambda\) results in a smoother curve, while a smaller \(\lambda\) allows for more wiggly fits.
+
+\subsubsection{Variance Structure in \(Xr\) Terms}
+
+In the \(Xr\) terms, the smoothness is implicitly controlled by the random effects structure. Specifically, the random effects are assumed to follow a multivariate normal distribution with a certain covariance matrix \(\Sigma\):
+
+\[
+Xr_{\text{cov}} \sim \mathcal{N}(0, \Sigma)
+\]
+
+The elements of \(\Sigma\) can be considered analogous to the smoothing parameter in \(s()\) terms. They control the amount of "wiggle" allowed in the fitted curve. During the model fitting process, the elements of \(\Sigma\) are estimated from the data, effectively determining the smoothness of the \(Xr\) terms.
+
+\subsubsection{Comparison and Equivalence}
+
+\textbf{Implicit vs. Explicit Control:} \(s()\) terms have an explicit smoothing parameter \(\lambda\), while \(Xr\) terms have an implicit control through the random effects' covariance structure.
+\newline
+
+\textbf{Optimization:} Both \(\lambda\) and \(\Sigma\) are estimated during the model fitting process, albeit through different algorithms.
+\newline
+
+\textbf{Predictive Equivalence:} When both models are well-calibrated, the \(Xr\) terms in \texttt{gtmb0} and the \(s()\) terms in \texttt{gamm\_model} should produce similar predictions. This is because both are designed to capture the same underlying smooth relationship between predictors and response.
+\newline
+
+\textbf{Model Complexity:} The \texttt{gtmb0} model can be computationally less expensive because it fits within the generalized linear mixed model (GLMM) framework, which is well-optimized. On the other hand, \textbf{gamm\_model} may require specialized algorithms to optimize the smoothing parameter.
+
+In summary, while the mechanisms are different, both \(Xr\) and \(s()\) terms aim to achieve similar goals of capturing the underlying smooth structure in the data. The \(Xr\) terms' random effects structure serves a role similar to the smoothing parameter in \(s()\) terms, making \texttt{gtmb0} and \textbf{gamm\_model} approximately equivalent in terms of their predictive capabilities.
+
+
+
+\begin{equation}
+\text{minimize} \quad ||y - Xf \beta_f - Xr \beta - S \theta||^2 + \lambda \theta^T S \theta
+\end{equation}
+
+Here, \(\lambda\) is the smoothing parameter, and \(S\) is the penalty matrix. The term \(\theta^T S \theta\) is the penalty term that enforces smoothness. The model aims to minimize this objective function, balancing the fit to the data and the smoothness of the estimated function.
+
+\subsection{Key Differences in Penalization}
+
+\begin{enumerate}
+    \item \textbf{Explicit vs. Implicit Penalization}: Xr method does not include any explicit penalization, while Bolker's method includes a penalty term to enforce smoothness.
+    
+    \item \textbf{Objective Function}: The objective function in the Xr method aims to minimize the residual sum of squares, while Bolker's method aims to minimize a penalized residual sum of squares.
+    
+    \item \textbf{Smoothing Parameter}: In Ben Bolker's method, the smoothing parameter \(\lambda\) controls the trade-off between fit and smoothness, which is not present in the Xr method.
+\end{enumerate}
+
+\subsection{Summary}
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{visuals/ridge_effect_plot_bigger_dots.png}
+    \caption{This plot illustrates the impact of ridge regularization in parameter space, where each ellipse represents a contour of equal penalized loss for different values of $\lambda$. As $\lambda$ increases, the ellipses, which are centered at the origin, become smaller, indicating stronger penalization and thus smaller coefficient values. The dashed lines represent the $ \lambda = 0 $ constraint. This visualization helps in understanding how ridge regression controls the complexity of the model by constraining the magnitude of the coefficients, effectively trading off a slight increase in bias for a significant reduction in variance \cite{Statlect2023Ridge}}
+    \label{fig:tps}
+\end{figure}
