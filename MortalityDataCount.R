@@ -11,9 +11,9 @@ library(tidyr)
 library(caret)
 library(AICcmodavg)
 library(randomForest)
-library(importance)
 library(gamm4)
 
+## data set given by author of generalized-linear-models-for-insurance-data
 swedish_mortality<-read_sas('mortality.sas7bdat')
 
 head(swedish_mortality)
@@ -178,14 +178,14 @@ for(i in 1:n_folds) {
   # Train GAMM model
   model_gamm <- gamm4(Male_death~ s(Age) +s(Year)+ offset(log(Male_Exp)),family = negbin(theta=10.2), 
                       data = train_fold)
-  pred_gamm <- predict(model_gamm$gam, test_data, type = "response")
-  rmse_gamm[[i]] <- sqrt(mean((pred_gamm - test_data$Male_death)^2))
+  pred_gamm <- predict(model_gamm$gam, test_fold, type = "response")
+  rmse_gamm[[i]] <- sqrt(mean((pred_gamm - test_fold$Male_death)^2))
   
   # Train GLMMTMB model
   model_glmmTMB <- glmmTMB(Male_death~ s(Age) +s(Year),offset=log(Male_Exp),disp=~Age,family = nbinom2(),
                            data = train_fold)
-  pred_glmmTMB <- predict(model_glmmTMB, test_data, type = "response")
-  rmse_glmmTMB[[i]] <- sqrt(mean((pred_glmmTMB - test_data$Male_death)^2))
+  pred_glmmTMB <- predict(model_glmmTMB, test_fold, type = "response")
+  rmse_glmmTMB[[i]] <- sqrt(mean((pred_glmmTMB - test_fold$Male_death)^2))
 }
 
 # Calculate the average RMSE for each model
@@ -219,6 +219,8 @@ start_time_glmmTMB_train <- Sys.time()
 
 full_model_glmmTMB <- glmmTMB(Male_death~ s(Age) +s(Year),offset = log(Male_Exp),disp=~Age,family = nbinom2(), 
                               data = full_train_data)
+
+plot(resid(full_model_glmmTMB))
 
 end_time_glmmTMB_train <- Sys.time()
 train_duration_glmmTMB <- end_time_glmmTMB_train - start_time_glmmTMB_train

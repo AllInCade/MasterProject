@@ -13,7 +13,6 @@ library(tidyr)
 library(caret)
 library(AICcmodavg)
 library(randomForest)
-library(importance)
 library(gamm4)
 
 
@@ -90,14 +89,11 @@ swedish_mortality1$death_count_group <- as.factor(swedish_mortality1$death_count
 
 swedish_mortality1$Age_scaled <- scale(swedish_mortality1$Age)
 
-# Now you can use death_count_group as a random effect in your model
 
-
-hist(swedish_mortality1$q_male_logit)
 
 
 swedish_mortality1$q_male_logit <- log(swedish_mortality1$q_male / (1 - swedish_mortality1$q_male))
-
+hist(swedish_mortality1$q_male_logit)
 
 
 gamm_model <- gamm4(q_male_logit~ s(Age) +s(Year),random=~(1|death_count_group),
@@ -170,16 +166,16 @@ for(i in 1:n_folds) {
                       family=gaussian(),
                       data = train_fold, REML=TRUE)
   # Make predictions on the logit scale
-  logit_predictions <- predict(model_gamm$gam, test_data, type = "response")
+  logit_predictions <- predict(model_gamm$gam, test_fold, type = "response")
   # Back-transform predictions to the original scale
   pred_gamm  <- 1 / (1 + exp(-logit_predictions))
-  rmse_gamm[[i]] <- sqrt(mean((pred_gamm - test_data$q_male)^2))
+  rmse_gamm[[i]] <- sqrt(mean((pred_gamm - test_fold$q_male)^2))
   
   # Train GLMMTMB model
   model_glmmTMB <- glmmTMB(q_male~ s(Age)+s(Year)+ (1|death_count_group), family=beta_family(link = "logit"), 
                            data = train_fold, REML=TRUE)
-  pred_glmmTMB <- predict(model_glmmTMB, test_data, type = "response")
-  rmse_glmmTMB[[i]] <- sqrt(mean((pred_glmmTMB - test_data$q_male)^2))
+  pred_glmmTMB <- predict(model_glmmTMB, test_fold, type = "response")
+  rmse_glmmTMB[[i]] <- sqrt(mean((pred_glmmTMB - test_fold$q_male)^2))
 }
 
 
