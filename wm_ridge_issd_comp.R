@@ -22,7 +22,7 @@ plan(sequential)
 gc()
 options(future.seed = TRUE, future.rng.onMisuse="ignore")
 gc()
-wind_data <- read_csv("SB_Aeolus_20230519.csv")
+wind_data <- read_csv("wind_data.csv")
 covariates <- c("spd_rolling_avg", "Vtau", "Utau", "U", "V", "spd", "datetime_UTC")
 
 wind_data <- wind_data %>%
