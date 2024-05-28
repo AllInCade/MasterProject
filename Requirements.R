@@ -1,5 +1,8 @@
-# List of packages required for the project
-packages <- c("ggplot2", "dplyr", "tidyr", "glmmTMB", "mgcv")
+# List of packages required for the project (may not be 100% complete and/or contain redundancies)
+packages <- c("ggplot2", "dplyr", "tidyr", "glmmTMB", "mgcv", "glmnet", "DHARMa", 
+              "future","furrr","parallel","zoo","forecast","purrr","gamm4","progressr",
+              "TTR","MASS","caret","spdep","sp","gstat","ROSE","pROC","pheatmap" ,"quantmod",
+              "future.apply", "haven", "lubridate", "reshape2", "readr", "purrr", "VGAM", "optimx")
 
 # Function to check and install missing packages
 install.packages.if.missing <- function(packages) {
