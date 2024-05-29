@@ -1,17 +1,4 @@
-library(haven)
-library(glmmTMB)
-library(mgcv)
-library(ggplot2)
-library(dplyr)
-library(DHARMa)
-library(corrplot)
-library(tidyverse)
-library(readr)
-library(tidyr)
-library(caret)
-library(AICcmodavg)
-library(randomForest)
-library(gamm4)
+source("requirements.R")
 
 ## data set given by author of generalized-linear-models-for-insurance-data
 swedish_mortality<-read_sas('mortality.sas7bdat')
