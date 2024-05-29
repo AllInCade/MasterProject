@@ -21,7 +21,7 @@ Misc R code: Other relevant scripts of R code for the project.
 To use the contents of this repository:
 1. Clone or download the repository to your local machine.
 2. Install the required R packages listed in `requirements.R`.
-3. Run the R scripts in the `/Spline models` and `/Ridge models` directory to replicate the analysis.
+3. Run the R scripts in the `/Spline models` and `/Ridge models` directories to replicate the analysis.
 
 ## Contributions and Contact
 
