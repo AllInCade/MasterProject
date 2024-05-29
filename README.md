@@ -22,6 +22,8 @@ To use the contents of this repository:
 1. Clone or download the repository to your local machine.
 2. Install the required R packages listed in `requirements.R`.
 3. Run the R scripts in the `/Spline models` and `/Ridge models` directories to replicate the analysis.
+4. You may need to install glmmTMB by `remotes::install_github("https://github.com/glmmTMB/glmmTMB/tree/smooth_fixes")`, but
+   `ìnstall.packages("glmmTMB", type = "source")` should work and have the latest updates.
 
 ## Contributions and Contact
 
