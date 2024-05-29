@@ -2,7 +2,9 @@
 packages <- c("ggplot2", "dplyr", "tidyr", "glmmTMB", "mgcv", "glmnet", "DHARMa", 
               "future","furrr","parallel","zoo","forecast","purrr","gamm4","progressr",
               "TTR","MASS","caret","spdep","sp","gstat","ROSE","pROC","pheatmap" ,"quantmod",
-              "future.apply", "haven", "lubridate", "reshape2", "readr", "purrr", "VGAM", "optimx")
+              "future.apply", "haven", "lubridate", "reshape2", "readr", "VGAM", "optimx",
+              "CASdatasets","randomForest","GLMsData","corrplot","tidyverse","AICcmodavg","AER"
+             )
 
 # Function to check and install missing packages
 install.packages.if.missing <- function(packages) {
