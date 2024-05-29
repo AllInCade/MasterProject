@@ -1,21 +1,4 @@
-library(glmmTMB)
-library(mgcv)
-library(gamm4)
-library(dplyr)
-library(DHARMa)
-library(corrplot)
-library(tidyverse)
-library(readr)
-library(tidyr)
-library(randomForest)
-library(AICcmodavg)
-
-
-#install.packages("CASdatasets", repos = "http://cas.uqam.ca/pub/", type="source")
-
-library(CASdatasets)
-?CASdatasets
-
+source("requirements.R")
 
 
 data(ustermlife)
