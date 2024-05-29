@@ -1,36 +1,9 @@
-library(readr)
-library(readxl)
-library(dplyr)
-library(lubridate)
-library(mgcv)
-library(glmmTMB)
-library(gamm4)
-library(forecast)
-library(caret)
-library(ggplot2)
-library(DHARMa)
-library(reshape2)
-library(MASS)
-library(car)
-library(VGAM)
-library(optimx)
-#install.packages("clock")
-#install.packages("recipes")
-#install.packages("bestNormalize")
-library(bestNormalize)
-
-# DATA
-# https://banks.data.fdic.gov/explore/failures?aggReport=detail&displayFields=NAME%2CCERT%2CFIN%2CCITYST%2CFAILDATE%2CSAVR%2CRESTYPE%2CCOST%2CRESTYPE1%2CCHCLASS1%2CQBFDEP%2CQBFASSET&endFailYear=2024&sortField=CERT&sortOrder=asc&startFailYear=1975
+source("requirements.R")
 
 bank_data_full <- read_csv("bankdata.csv")
 bank_data_full <- bank_data_full[bank_data_full$ID != 613, ]
 bank_data_na_omit <- na.omit(bank_data_full)
 bank_data_na_omit$FAILDATE <- as.Date(bank_data_na_omit$FAILDATE, format = "%m/%d/%Y")
-
-# We'll train a random Forest on the data set with NAs omitted using the assumed
-# informative predictors of total assets and total deposits to predict the 
-# COST variable (Estimated Loss associated with the bank failure).
-# Use the model to impute the missing values in the full data set
 
 train_data <- bank_data_na_omit[, c("COST", "QBFASSET", "QBFDEP")]
 
@@ -68,7 +41,6 @@ missing_qbfasset_index <- which(is.na(bank_data_full$QBFASSET) & !is.na(bank_dat
 bank_data_full$QBFASSET[missing_qbfasset_index] <- median_ratio * bank_data_full$QBFDEP[missing_qbfasset_index]
 missing_cost_indices <- which(is.na(bank_data_full$COST))
 
-# Make sure there are no longer any missing values in the predictors
 if (any(is.na(bank_data_full[missing_cost_indices, c("QBFASSET", "QBFDEP")]))) {
   stop("predict_data still contains missing values in the predictor columns.")
 }
@@ -77,7 +49,7 @@ predict_data <- bank_data_full[missing_cost_indices, c("QBFASSET", "QBFDEP")]
 predicted_cost <- predict(final_model, newdata = predict_data)
 bank_data_full$COST[missing_cost_indices] <- predicted_cost
 
-# Check for NAs in each column
+# Check for NAs
 na_count_per_column <- sapply(bank_data_full, function(x) sum(is.na(x)))
 total_na_count <- sum(is.na(bank_data_full))
 print(na_count_per_column)
@@ -96,7 +68,6 @@ bank_data_full <- bank_data_full %>%
     WEEKDAY = wday(FAILDATE, label = TRUE)
   )
 
-
 # Split the CITYST column into two columns: CITY and STATE
 split_city_state <- strsplit(bank_data_full$CITYST, ", ")
 bank_data_full$CITY <- sapply(split_city_state, function(x) x[1])
@@ -110,14 +81,12 @@ tmb_pois <- glmmTMB(FailuresCount ~ s(TIME)  + (1|STATE),
                     data = bank_data_full, 
                     family = poisson,
                     REML = TRUE)
-
-
+                               
 gamm_pois <- gamm4(FailuresCount ~ s(TIME), 
                    random = ~(1 | STATE),
                    data = bank_data_full, 
                    family = poisson,
                    REML = TRUE) 
-
 
 summary(tmb_pois)
 summary(gamm_pois$mer)
@@ -142,7 +111,6 @@ gamm_nb <- gamm4(FailuresCount ~ s(TIME) + s(YEAR) + s(MONTH),
                    data = bank_data_full, 
                    family = negbin(theta=2),
                    REML = TRUE) 
-
 
 AIC(tmb_nb)
 AIC(gamm_nb$mer)
