@@ -1,21 +1,4 @@
-library(haven)
-library(glmmTMB)
-library(mgcv)
-library(ggplot2)
-library(dplyr)
-library(DHARMa)
-library(corrplot)
-library(tidyverse)
-library(readr)
-library(tidyr)
-library(caret)
-library(AICcmodavg)
-library(randomForest)
-
-library(gamm4)
-
-
-library(GLMsData)
+source("requirements.R")
 
 data("motorins")
 view(motorins)
