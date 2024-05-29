@@ -17,7 +17,3 @@ install.packages.if.missing(packages)
 
 # Load packages
 lapply(packages, library, character.only = TRUE)
-
-## Installation of Required Packages
-
-source("requirements.R")
