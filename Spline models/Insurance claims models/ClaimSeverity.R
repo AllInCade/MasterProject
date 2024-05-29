@@ -1,19 +1,4 @@
-library(haven)
-library(glmmTMB)
-library(mgcv)
-library(ggplot2)
-library(dplyr)
-library(DHARMa)
-library(corrplot)
-library(tidyverse)
-library(readr)
-library(tidyr)
-library(caret)
-library(AICcmodavg)
-library(randomForest)
-library(gamm4)
-
-library(GLMsData)
+source("requirements.R")
 
 data("motorins")
 view(motorins)
@@ -23,8 +8,6 @@ head(motorins)
 hist(motorins$Claims, breaks=2000)
 
 motorins$HasClaim <- ifelse(motorins$Claims > 0, 1, 0)
-
-
 n <- nrow(motorins)
 train_size <- round(0.6 * n)
 valid_size <- round(0.2 * n)
