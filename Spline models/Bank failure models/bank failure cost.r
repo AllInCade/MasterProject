@@ -1,23 +1,4 @@
-library(readr)
-library(readxl)
-library(dplyr)
-library(lubridate)
-library(mgcv)
-library(glmmTMB)
-library(gamm4)
-library(forecast)
-library(caret)
-library(ggplot2)
-library(DHARMa)
-library(reshape2)
-library(MASS)
-library(car)
-library(VGAM)
-library(optimx)
-library(bestNormalize)
-library(randomForest)
-# DATA
-# https://banks.data.fdic.gov/explore/failures?aggReport=detail&displayFields=NAME%2CCERT%2CFIN%2CCITYST%2CFAILDATE%2CSAVR%2CRESTYPE%2CCOST%2CRESTYPE1%2CCHCLASS1%2CQBFDEP%2CQBFASSET&endFailYear=2024&sortField=CERT&sortOrder=asc&startFailYear=1975
+source("requirements.R")
 
 bank_data <- read_csv("bankdata.csv")
 bank_data <- bank_data[bank_data$ID != 613, ]
@@ -78,7 +59,7 @@ barplot(sorted_importance_data$Importance, names.arg = sorted_importance_data$Fe
         main = "Feature Importance in Predicting COST", las = 2, cex.names = 0.7)
 
 
-## check if smooths can offer increased performance
+## check if smooths can offer increased accuracy
 
 linmod <- glmmTMB(log_COST ~ TIME + log_DEPOSIT +log_ASSET, 
                   data = bank_data)
@@ -92,6 +73,7 @@ AIC(linmod)
 AIC(tmbmod) 
 
 # GAM shows better in-sample (as one may expect) performance in termf of AIC
+# Be weary of overfitting despite lower AIC. 
 # Explore more advanced options like random effects etc
 
 tmbmod2 <- glmmTMB(log_COST ~ s(TIME) + s(log_ASSET) + s(log_DEPOSIT)
@@ -100,8 +82,6 @@ tmbmod2 <- glmmTMB(log_COST ~ s(TIME) + s(log_ASSET) + s(log_DEPOSIT)
                    data = bank_data, 
                    family = gaussian(),
                    REML = TRUE)
-
-
 
 gammod2 <- gamm4(log_COST ~ s(TIME) + s(log_ASSET) + s(log_DEPOSIT),
                    random =~ (1|YEAR) + (1|STATE) + (1|CHCLASS1),
@@ -180,7 +160,7 @@ for(i in 1:n_folds) {
   rmse_glmmTMB[[i]] <- sqrt(mean((pred_glmmTMB - test_fold$log_COST)^2))
 }
 
-mean_rmse_gamm <- mean(unlist(rmse_gamm), na.rm = TRUE) # Using na.rm=TRUE to handle potential NA values
+mean_rmse_gamm <- mean(unlist(rmse_gamm), na.rm = TRUE) 
 mean_rmse_glmmTMB <- mean(unlist(rmse_glmmTMB), na.rm = TRUE)
 cat("Average RMSE for GAMM: ", mean_rmse_gamm, "\n")
 cat("Average RMSE for GLMMTMB: ", mean_rmse_glmmTMB, "\n")
@@ -249,8 +229,6 @@ ggplot(plot_data, aes(x = Actual, y = Predicted, color = Model)) +
   theme_minimal() +
   scale_color_manual(values = c("darkorange", "darkblue"))
 
-
-
 ggplot(plot_data, aes(x = Predicted, fill = Model)) +
   geom_density(alpha = 0.5) +
   labs(title = "Density of Predicted Values", 
@@ -258,8 +236,7 @@ ggplot(plot_data, aes(x = Predicted, fill = Model)) +
        fill = "Model") +
   theme_minimal() +
   scale_fill_manual(values = c("GAMM" = "darkorange", "GLMMTMB" = "darkblue")) +
-  theme(legend.position = "right") # Include legend
-
+  theme(legend.position = "right") 
 
 actual_density <- density(full_train_data$log_COST)
 
@@ -267,14 +244,12 @@ actual_density <- density(full_train_data$log_COST)
 actual_density_df <- data.frame(Value = actual_density$x, Density = actual_density$y)
 
 ggplot() +
-  # Add the actual values density with geom_line
   geom_line(data = actual_density_df, aes(x = Value, y = Density, color = "Actual"), size = 1) +
-  # Add the predicted densities
   geom_density(data = plot_data[plot_data$Model == "GLMMTMB", ], 
                aes(x = Predicted, fill = "GLMMTMB"), alpha = 0.5) +
   geom_density(data = plot_data[plot_data$Model == "GAMM", ], 
                aes(x = Predicted, fill = "GAMM"), alpha = 0.5) +
-  scale_color_manual(values = c("Actual" = "black")) + # Assign color to the actual values density line
+  scale_color_manual(values = c("Actual" = "black")) + 
   scale_fill_manual(values = c("GAMM" = "darkorange", "GLMMTMB" = "darkblue")) +
   labs(title = "Density of Predicted Values vs Actual Values",
        x = "Values",
