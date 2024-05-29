@@ -1,39 +1,5 @@
-#remotes::install_github("https://github.com/glmmTMB/glmmTMB/tree/smooth_fixes")
-library(parallel)
-library(doParallel)
-library(progress)
-library(dplyr)
-library(zoo)
-library(lubridate)
-library(readr)
-library(mgcv)
-library(glmmTMB)
-library(randomForest)
-library(forecast)
-library(ggplot2)
-library(reshape2)
-library(purrr)
-library(future)
-library(future.apply)
-library(gamm4)
-library(caret)
-library(pROC)
-library(precrec)
-library(pheatmap)
-library(CalibratR)
-library(gains)
-library(spdep)
-library(sp)
-library(gstat)
-library(ROSE)
-library(tidyverse)
-library(DHARMa)
-library(MASS)
-library(TTR)
-library(furrr)
-library(progressr)
-library(glmnet)
-
+## Installation of Required Packages
+source("requirements.R") 
 
 plan(sequential)
 gc()
@@ -121,162 +87,6 @@ coef(best_model)
 calculate_rmse <- function(actual, predicted) {
   sqrt(mean((actual - predicted)^2))
 }
-
-gc()
-
-# Set parameters
-total_obs <- nrow(wind_data)
-initial_train_size <- floor(0.8 * total_obs)  # Use 80% for initial training
-forecast_horizon <- 24
-
-plan(multisession, workers = 6)  # Adjust for potential RAM bottleneck
-
-# Function to update models with new data
-update_models <- function(prev_gamm4, prev_gam, new_data) {
-  gamm4_model <- gamm4(spd ~ s(time) + spd_lag1 + Atmp + R24 + spd_lag2,
-                       data = new_data,
-                       family = gaussian,
-                       REML = TRUE,
-                       start = prev_gamm4)
-  
-  gam_model <- glmmTMB(spd ~ s(time) + spd_lag1 + Wtmp + Atmp + R24 + abar,
-                       disp =~ spd_lag2,
-                       data = new_data,
-                       family = gaussian,
-                       REML = TRUE,
-                       start = prev_gam)
-  
-  return(list(gamm4_model = gamm4_model, gam_model = gam_model))
-}
-
-# Function to process each fold
-process_fold <- function(start_index, data, training_window_size, forecast_horizon, prev_models = NULL) {
-  train_end <- start_index + training_window_size - 1
-  test_end <- train_end + forecast_horizon
-  
-  train_data <- data[start_index:train_end, ]
-  test_data <- data[(train_end + 1):test_end, ]
-  
-  if (is.null(prev_models)) {
-    gamm4_model <- gamm4(spd ~ s(time) + spd_lag1 + Atmp + R24 + spd_lag2,
-                         data = train_data,
-                         family = gaussian,
-                         REML = TRUE)
-    
-    gam_model <- glmmTMB(spd ~ s(time) + spd_lag1 + Wtmp + Atmp + R24 + abar,
-                         disp =~ spd_lag2,
-                         data = train_data,
-                         family = gaussian,
-                         REML = TRUE)
-  } else {
-    models <- update_models(prev_models$gamm4_model, prev_models$gam_model, train_data)
-    gamm4_model <- models$gamm4_model
-    gam_model <- models$gam_model
-  }
-  
-  gamm4_predictions <- predict(gamm4_model$gam, newdata = test_data, type = "response")
-  gam_predictions <- predict(gam_model, newdata = test_data, type = "response")
-  
-  gamm4_rmse <- calculate_rmse(test_data$spd, gamm4_predictions)
-  gam_rmse <- calculate_rmse(test_data$spd, gam_predictions)
-  
-  return(list(
-    gamm4_rmse = gamm4_rmse,
-    gam_rmse = gam_rmse,
-    actual_spd = test_data$spd,
-    gamm4_predictions = gamm4_predictions,
-    gam_predictions = gam_predictions,
-    fold = rep(start_index, nrow(test_data)),
-    gamm4_model = gamm4_model,
-    gam_model = gam_model
-  ))
-}
-
-# Initial training
-initial_train_data <- wind_data[1:initial_train_size, ]
-gamm4_initial <- gamm4(spd ~ s(time) + spd_lag1 + Atmp + R24 + spd_lag2,
-                       data = initial_train_data,
-                       family = gaussian,
-                       REML = TRUE)
-
-gam_initial <- glmmTMB(spd ~ s(time) + spd_lag1 + Wtmp + Atmp + R24 + abar,
-                       disp =~ spd_lag2,
-                       data = initial_train_data,
-                       family = gaussian,
-                       REML = TRUE)
-
-initial_models <- list(gamm4_model = gamm4_initial, gam_model = gam_initial)
-
-# Start indices for sliding window
-start_indices <- seq(initial_train_size + 1, total_obs - forecast_horizon + 1, by = forecast_horizon)
-
-# Process folds
-results <- future_map_dfr(start_indices, function(x) {
-  process_fold(x, wind_data, initial_train_size, forecast_horizon, initial_models)
-})
-
-# Aggregate and visualize results
-error_data <- results %>%
-  mutate(hour = rep(1:forecast_horizon, length(start_indices))) %>%
-  pivot_longer(cols = c(gamm4_rmse, gam_rmse), names_to = "model", values_to = "rmse")
-
-# Calculate mean RMSE for each hour
-hourly_rmse <- error_data %>%
-  group_by(hour, model) %>%
-  summarize(mean_rmse = mean(rmse, na.rm = TRUE))
-
-# Plot the errors
-ggplot(hourly_rmse, aes(x = hour, y = mean_rmse, color = model)) +
-  geom_line() +
-  labs(title = "Prediction Accuracy by Hour",
-       x = "Hour Ahead",
-       y = "Mean RMSE",
-       color = "Model") +
-  theme_minimal()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 plan(sequential) # Reset back-end paralellization scheme
@@ -416,4 +226,117 @@ ggplot(fold_predictions_actuals_long, aes(x = Predicted, fill = Model)) +
   labs(title = "Density of Predicted Wind Speeds vs. Actual", x = "Wind Speed", y = "Density") +
   theme_minimal() +
   scale_fill_manual(values = c("gamm4" = "darkblue", "GAM" = "darkorange"))
+
+                          
+#---------------------------------------------------------------------------------------------------------------#
+## alternative setup not finished                  
+# Set parameters
+total_obs <- nrow(wind_data)
+initial_train_size <- floor(0.8 * total_obs)  # Use 80% for initial training
+forecast_horizon <- 24
+
+plan(multisession, workers = 6)  # Adjust for potential RAM bottleneck
+
+# Function to update models with new data
+update_models <- function(prev_gamm4, prev_gam, new_data) {
+  gamm4_model <- gamm4(spd ~ s(time) + spd_lag1 + Atmp + R24 + spd_lag2,
+                       data = new_data,
+                       family = gaussian,
+                       REML = TRUE,
+                       start = prev_gamm4)
+  
+  gam_model <- glmmTMB(spd ~ s(time) + spd_lag1 + Wtmp + Atmp + R24 + abar,
+                       disp =~ spd_lag2,
+                       data = new_data,
+                       family = gaussian,
+                       REML = TRUE,
+                       start = prev_gam)
+  
+  return(list(gamm4_model = gamm4_model, gam_model = gam_model))
+}
+
+# Function to process each fold
+process_fold <- function(start_index, data, training_window_size, forecast_horizon, prev_models = NULL) {
+  train_end <- start_index + training_window_size - 1
+  test_end <- train_end + forecast_horizon
+  
+  train_data <- data[start_index:train_end, ]
+  test_data <- data[(train_end + 1):test_end, ]
+  
+  if (is.null(prev_models)) {
+    gamm4_model <- gamm4(spd ~ s(time) + spd_lag1 + Atmp + R24 + spd_lag2,
+                         data = train_data,
+                         family = gaussian,
+                         REML = TRUE)
+    
+    gam_model <- glmmTMB(spd ~ s(time) + spd_lag1 + Wtmp + Atmp + R24 + abar,
+                         disp =~ spd_lag2,
+                         data = train_data,
+                         family = gaussian,
+                         REML = TRUE)
+  } else {
+    models <- update_models(prev_models$gamm4_model, prev_models$gam_model, train_data)
+    gamm4_model <- models$gamm4_model
+    gam_model <- models$gam_model
+  }
+  
+  gamm4_predictions <- predict(gamm4_model$gam, newdata = test_data, type = "response")
+  gam_predictions <- predict(gam_model, newdata = test_data, type = "response")
+  
+  gamm4_rmse <- calculate_rmse(test_data$spd, gamm4_predictions)
+  gam_rmse <- calculate_rmse(test_data$spd, gam_predictions)
+  
+  return(list(
+    gamm4_rmse = gamm4_rmse,
+    gam_rmse = gam_rmse,
+    actual_spd = test_data$spd,
+    gamm4_predictions = gamm4_predictions,
+    gam_predictions = gam_predictions,
+    fold = rep(start_index, nrow(test_data)),
+    gamm4_model = gamm4_model,
+    gam_model = gam_model
+  ))
+}
+
+# Initial training
+initial_train_data <- wind_data[1:initial_train_size, ]
+gamm4_initial <- gamm4(spd ~ s(time) + spd_lag1 + Atmp + R24 + spd_lag2,
+                       data = initial_train_data,
+                       family = gaussian,
+                       REML = TRUE)
+
+gam_initial <- glmmTMB(spd ~ s(time) + spd_lag1 + Wtmp + Atmp + R24 + abar,
+                       disp =~ spd_lag2,
+                       data = initial_train_data,
+                       family = gaussian,
+                       REML = TRUE)
+
+initial_models <- list(gamm4_model = gamm4_initial, gam_model = gam_initial)
+
+# Start indices for sliding window
+start_indices <- seq(initial_train_size + 1, total_obs - forecast_horizon + 1, by = forecast_horizon)
+
+# Process folds
+results <- future_map_dfr(start_indices, function(x) {
+  process_fold(x, wind_data, initial_train_size, forecast_horizon, initial_models)
+})
+
+# Aggregate and visualize results
+error_data <- results %>%
+  mutate(hour = rep(1:forecast_horizon, length(start_indices))) %>%
+  pivot_longer(cols = c(gamm4_rmse, gam_rmse), names_to = "model", values_to = "rmse")
+
+# Calculate mean RMSE for each hour
+hourly_rmse <- error_data %>%
+  group_by(hour, model) %>%
+  summarize(mean_rmse = mean(rmse, na.rm = TRUE))
+
+# Plot the errors
+ggplot(hourly_rmse, aes(x = hour, y = mean_rmse, color = model)) +
+  geom_line() +
+  labs(title = "Prediction Accuracy by Hour",
+       x = "Hour Ahead",
+       y = "Mean RMSE",
+       color = "Model") +
+  theme_minimal()
 
