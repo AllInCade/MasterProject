@@ -32,9 +32,8 @@ bank_data$DEP_ASS_RATIO[is.nan(bank_data$DEP_ASS_RATIO)] <- NA
 # Feature ImportanceAnalysis
 bank_data <- bank_data[bank_data$COST > 0, ]
 
-## Due to extreme outliers and the extremely skewness and kurtosis of the data 
-## we will log transform numerical predictors to stabilize 
-
+## The data spans a large range, and is highly skewed
+## Log + 1 transoform for numerical stability 
 bank_data$log_COST <- log(bank_data$COST + 1)
 bank_data$log_ASSET <- log(bank_data$QBFASSET + 1)
 bank_data$log_DEPOSIT <- log(bank_data$QBFDEP + 1)
@@ -342,10 +341,9 @@ total_timing <- system.time({
   cv_results <- cross_validate_models(bank_data, bank_data_augmented, folds)
 })
 
-# Print the total timing results
 cat(sprintf("Total cross-validation time: %f seconds\n", total_timing["elapsed"]))
 
-# Combine the train and validation sets into "full_train_data" sets
+# Combine the train and validation sets 
 full_train_data <- do.call(rbind, lapply(cv_results$train_sets, function(x) x$cv_train))
 full_train_data_augmented <- do.call(rbind, lapply(cv_results$train_sets, function(x) x$cv_train_aug))
 
@@ -484,7 +482,7 @@ plot_predictions <- function(model_predictions, test_data, models_to_train) {
     p <- p + annotate("text", x = Inf, y = Inf, 
                       label = paste(model_name, "RMSE:", round(rmse_values[[model_name]], 3)), 
                       hjust = 3, # Adjust if necessary to move text left from the right edge
-                      vjust = vertical_offset, # Dynamic vertical adjustment based on model index
+                      vjust = vertical_offset, 
                       color = ifelse(model_name == "Ridge", "darkblue", "darkorange"), size = 10)
   }
   
