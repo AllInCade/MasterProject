@@ -11,10 +11,11 @@ This repository contains the R scripts and related materials for me and my colle
 
 ## Repository Structure
 
-Project Document: Contains the files from the Overleaf project. 
-Spline models: Contains all R scripts for models developed for this project. Each script is named according to its purpose and data set.
-Ridge models: Contains the R scripts for the models and methods we implement manually with a ridge penalty.
-Misc R code: Other relevant scripts of R code for the project.
+1. Project Document: Contains the files from the Overleaf project.
+2. Spline models: Contains all R scripts for models developed for this project. Each script is named according to its purpose and data set.
+3. Ridge models: Contains the R scripts for the models and methods we implement manually with a ridge penalty.
+4. Misc R code: Other relevant scripts of R code for the project.
+
 
 ## Getting Started
 
