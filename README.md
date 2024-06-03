@@ -15,7 +15,7 @@ This repository contains the R scripts and related materials for me and my colle
 2. Spline models: Contains all R scripts for models developed for this project. Each script is named according to its purpose and data set.
 3. Ridge models: Contains the R scripts for the models and methods we implement manually with a ridge penalty.
 4. Misc R code: Other relevant scripts of R code for the project.
-
+5. Visuals: Plots, images etc used in the document. May upload more visuals that are not present in the delievered document.
 
 ## Getting Started
 
