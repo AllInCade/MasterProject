@@ -144,8 +144,10 @@ test_data$trend <- trend_forecast$mean
 test_data$seasonal <- seasonal_forecast$mean
 
 # Re-train the model on the full training dataset
-final_model <- glmmTMB(hot_cold_indicator ~ s(time, k = 5) + s(max_temp, k = 6)*s(min_temp, k = 6) +
-                       s(latitude,longitude) + s(trend) + s(spatial) + s(seasonal)
+final_model <- glmmTMB(hot_cold_indicator ~ s(time, k = 5) + 
+                       s(max_temp, k = 6)*s(min_temp, k = 6) +
+                       s(latitude,longitude) + s(trend) + 
+                       s(spatial) + s(seasonal)
                        + (1|month), 
                        data = full_train_data,
                        family = binomial(link="logit"),
